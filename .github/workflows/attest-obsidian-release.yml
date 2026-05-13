@@ -1,0 +1,77 @@
+name: Attest Obsidian release assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: GitHub release tag to attest
+        required: true
+        default: "0.1.2"
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: obsidian-plugin/package-lock.json
+
+      - name: Check release versions
+        run: python packaging/check_release_versions.py --tag "${{ inputs.tag }}"
+
+      - name: Install dependencies
+        working-directory: obsidian-plugin
+        run: npm ci
+
+      - name: Build plugin
+        working-directory: obsidian-plugin
+        run: npm run build
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir release-assets \
+            --pattern main.js \
+            --pattern manifest.json \
+            --pattern styles.css \
+            --clobber
+
+      - name: Verify built assets match release assets
+        run: |
+          set -euo pipefail
+          cmp obsidian-plugin/main.js release-assets/main.js
+          cmp obsidian-plugin/manifest.json release-assets/manifest.json
+          cmp obsidian-plugin/styles.css release-assets/styles.css
+
+      - name: Prepare attestation checksums
+        run: |
+          set -euo pipefail
+          (
+            cd release-assets
+            shasum -a 256 main.js manifest.json styles.css > ../obsidian-plugin-release.checksums.txt
+          )
+
+      - name: Attest Obsidian plugin release assets
+        uses: actions/attest@v4
+        with:
+          subject-checksums: obsidian-plugin-release.checksums.txt
