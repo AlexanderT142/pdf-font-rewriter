@@ -31,8 +31,7 @@ def main() -> None:
     expected = args.version or pyproject_version
     tag = args.tag
     if tag:
-        tag_version = tag[1:] if tag.startswith("v") else tag
-        assert_equal("release tag", tag_version, expected)
+        assert_equal("release tag", tag, expected)
 
     assert_equal("pyproject version", pyproject_version, expected)
     assert_equal("obsidian package version", package_version, expected)
@@ -59,7 +58,7 @@ def main() -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check release version consistency.")
     parser.add_argument("--version", help="Expected release version.")
-    parser.add_argument("--tag", help="Git tag name, for example v0.1.0.")
+    parser.add_argument("--tag", help="Git tag name, for example 0.1.0.")
     return parser.parse_args()
 
 
