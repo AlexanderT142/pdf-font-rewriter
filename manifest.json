@@ -3,7 +3,7 @@
   "name": "PDF Font Rewriter",
   "version": "0.1.2",
   "minAppVersion": "1.5.0",
-  "description": "Rewrite safely replaceable PDF text into a selected font from inside Obsidian.",
+  "description": "Rewrite safely replaceable PDF text into a selected font.",
   "author": "Tianchen Hao",
   "authorUrl": "",
   "isDesktopOnly": true
