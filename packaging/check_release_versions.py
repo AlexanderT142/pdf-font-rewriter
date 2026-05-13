@@ -47,10 +47,10 @@ def main() -> None:
     if expected not in root_versions_map:
         raise SystemExit(f"root versions.json does not contain {expected}")
 
-    if not helper_base_url.endswith(f"/download/v{expected}"):
+    if not helper_base_url.endswith(f"/download/{expected}"):
         raise SystemExit(
             "DEFAULT_HELPER_RELEASE_BASE_URL must end with "
-            f"/download/v{expected}; got {helper_base_url}"
+            f"/download/{expected}; got {helper_base_url}"
         )
 
     print(f"release versions OK: {expected}")
