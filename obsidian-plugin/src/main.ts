@@ -51,10 +51,16 @@ export default class PdfFontRewriterPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = { ...DEFAULT_SETTINGS, ...(await this.loadData()) };
+    const loaded = (await this.loadData()) as unknown;
+    const savedSettings = isSettingsRecord(loaded) ? loaded : {};
+    this.settings = { ...DEFAULT_SETTINGS, ...savedSettings };
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
   }
+}
+
+function isSettingsRecord(value: unknown): value is Partial<PdfFontRewriterSettings> {
+  return typeof value === "object" && value !== null;
 }
