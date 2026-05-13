@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = ROOT / "pyproject.toml"
+ROOT_PACKAGE = ROOT / "package.json"
 PLUGIN_PACKAGE = ROOT / "obsidian-plugin" / "package.json"
 PLUGIN_MANIFEST = ROOT / "obsidian-plugin" / "manifest.json"
 PLUGIN_VERSIONS = ROOT / "obsidian-plugin" / "versions.json"
@@ -20,6 +21,7 @@ HELPER_RELEASE_TS = ROOT / "obsidian-plugin" / "src" / "helperRelease.ts"
 def main() -> None:
     args = parse_args()
     pyproject_version = pyproject_project_version()
+    root_package_version = json_version(ROOT_PACKAGE)
     package_version = json_version(PLUGIN_PACKAGE)
     manifest_version = json_version(PLUGIN_MANIFEST)
     versions_map = json.loads(PLUGIN_VERSIONS.read_text(encoding="utf-8"))
@@ -34,6 +36,7 @@ def main() -> None:
         assert_equal("release tag", tag, expected)
 
     assert_equal("pyproject version", pyproject_version, expected)
+    assert_equal("root package version", root_package_version, expected)
     assert_equal("obsidian package version", package_version, expected)
     assert_equal("obsidian manifest version", manifest_version, expected)
     assert_equal("root manifest version", root_manifest_version, expected)

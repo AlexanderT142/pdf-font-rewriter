@@ -97,7 +97,7 @@ Release artifacts are separated:
 - Obsidian marketplace/plugin assets: `obsidian-plugin/main.js`, `obsidian-plugin/manifest.json`, `obsidian-plugin/styles.css`
 - Helper release assets: `release/helper/helper-manifest.json`, `release/helper/refont-helper-<platform>`
 
-GitHub tag releases are handled by `.github/workflows/release.yml`. A `0.1.2` tag builds:
+GitHub tag releases are handled by `.github/workflows/release.yml`. A `0.1.3` tag builds:
 
 - `refont-helper-macos-arm64`
 - `refont-helper-macos-x64`
