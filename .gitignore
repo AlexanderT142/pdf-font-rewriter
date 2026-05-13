@@ -1,0 +1,15 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+*.pdf
+*.egg-info/
+
+build/
+dist/
+release/
+node_modules/
+obsidian-plugin/node_modules/
+obsidian-plugin/main.js
+
+artifacts/

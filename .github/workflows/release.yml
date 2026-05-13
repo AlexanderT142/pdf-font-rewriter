@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check release versions
+        run: python packaging/check_release_versions.py --tag "${GITHUB_REF_NAME:-}"
+
+      - name: Export version
+        id: version
+        run: |
+          version="$(python - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as file:
+              print(tomllib.load(file)["project"]["version"])
+          PY
+          )"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build-plugin:
+    needs: check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: obsidian-plugin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: obsidian-plugin
+        run: npm ci
+
+      - name: Build plugin
+        working-directory: obsidian-plugin
+        run: npm run build
+
+      - name: Upload plugin files
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-plugin-release
+          if-no-files-found: error
+          path: |
+            obsidian-plugin/main.js
+            obsidian-plugin/manifest.json
+            obsidian-plugin/styles.css
+
+  build-helper:
+    needs: check
+    name: Build helper on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - macos-15-intel
+          - windows-latest
+          - ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --extra package
+
+      - name: Build helper
+        run: uv run python packaging/build_helper.py --clean
+
+      - name: Smoke test helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          helper="$(find dist/helper -type f \( -name 'refont-helper' -o -name 'refont-helper.exe' \) | head -n 1)"
+          "$helper" --help
+
+      - name: Upload helper build
+        uses: actions/upload-artifact@v4
+        with:
+          name: helper-dist-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          path: dist/helper/*/refont-helper*
+
+  publish:
+    needs:
+      - check
+      - build-plugin
+      - build-helper
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download helper builds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: helper-dist-*
+          merge-multiple: true
+          path: dist/helper
+
+      - name: Prepare helper release assets
+        run: python packaging/prepare_helper_release.py --clean --version "${{ needs.check.outputs.version }}"
+
+      - name: Download plugin files
+        uses: actions/download-artifact@v4
+        with:
+          name: obsidian-plugin-release
+          path: release/obsidian-plugin
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f release/obsidian-plugin/main.js
+          test -f release/obsidian-plugin/manifest.json
+          test -f release/obsidian-plugin/styles.css
+          test -f release/helper/helper-manifest.json
+          test "$(find release/helper -type f -name 'refont-helper-*' | wc -l | tr -d ' ')" -ge 4
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets=(
+            release/obsidian-plugin/main.js
+            release/obsidian-plugin/manifest.json
+            release/obsidian-plugin/styles.css
+            release/helper/helper-manifest.json
+            release/helper/refont-helper-*
+          )
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --title "$TAG" \
+              --notes "PDF Font Rewriter $TAG"
+          fi

@@ -1,0 +1,44 @@
+name: Build Obsidian plugin
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "obsidian-plugin/**"
+      - ".github/workflows/build-obsidian-plugin.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "obsidian-plugin/**"
+      - ".github/workflows/build-obsidian-plugin.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: obsidian-plugin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: obsidian-plugin
+        run: npm ci
+
+      - name: Build plugin
+        working-directory: obsidian-plugin
+        run: npm run build
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-plugin
+          path: |
+            obsidian-plugin/main.js
+            obsidian-plugin/manifest.json
+            obsidian-plugin/styles.css

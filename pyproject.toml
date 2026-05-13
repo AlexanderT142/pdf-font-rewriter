@@ -1,0 +1,25 @@
+[project]
+name = "pdf-font-rewriter"
+version = "0.1.0"
+description = "Conservative PDF native-text font rewriter"
+requires-python = ">=3.11"
+dependencies = [
+  "PyMuPDF>=1.24",
+  "uharfbuzz>=0.39",
+  "fonttools>=4.50",
+]
+
+[project.optional-dependencies]
+package = [
+  "pyinstaller>=6.10",
+]
+
+[project.scripts]
+refont = "refont.refont:main"
+
+[tool.setuptools]
+packages = ["refont"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

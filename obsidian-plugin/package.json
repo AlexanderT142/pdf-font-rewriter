@@ -1,0 +1,18 @@
+{
+  "name": "pdf-font-rewriter-obsidian",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Obsidian desktop plugin shell for PDF Font Rewriter.",
+  "scripts": {
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs",
+    "test:helper-installer": "node scripts/test-helper-installer.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "builtin-modules": "^5.0.0",
+    "esbuild": "^0.25.4",
+    "obsidian": "^1.8.7",
+    "typescript": "^5.8.3"
+  }
+}

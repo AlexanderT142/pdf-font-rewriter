@@ -1,0 +1,62 @@
+name: Build helper binaries
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "refont/**"
+      - "packaging/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/build-helper.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "refont/**"
+      - "packaging/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/build-helper.yml"
+
+jobs:
+  build:
+    name: Build helper on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - macos-15-intel
+          - windows-latest
+          - ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --extra package
+
+      - name: Build helper
+        run: uv run python packaging/build_helper.py --clean
+
+      - name: Prepare helper release assets
+        run: uv run python packaging/prepare_helper_release.py --clean
+
+      - name: Smoke test helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          helper="$(find dist/helper -type f \( -name 'refont-helper' -o -name 'refont-helper.exe' \) | head -n 1)"
+          "$helper" --help
+
+      - name: Upload helper artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: refont-helper-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/helper/**
+            release/helper/**
