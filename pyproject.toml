@@ -1,8 +1,9 @@
 [project]
 name = "pdf-font-rewriter"
-version = "0.1.0"
+version = "0.1.1"
 description = "Conservative PDF native-text font rewriter"
 requires-python = ">=3.11"
+license = "Apache-2.0"
 dependencies = [
   "PyMuPDF>=1.24",
   "uharfbuzz>=0.39",

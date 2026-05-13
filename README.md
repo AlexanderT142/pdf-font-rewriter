@@ -42,6 +42,22 @@ On macOS the tool also tries common system CJK fonts if `--cjk-fallback` is omit
 
 The Obsidian plugin is a desktop UI shell in `obsidian-plugin/`. It calls a packaged helper binary built from this Python engine, so end users do not need to install Python.
 
+## Obsidian Plugin Disclosure
+
+PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
+
+The plugin downloads a native helper binary from this repository's GitHub Releases when the helper is missing or outdated. The downloaded helper is selected for the user's OS/CPU platform and verified against `helper-manifest.json` with SHA-256 before installation.
+
+The helper is installed outside the vault:
+
+- macOS: `~/Library/Application Support/pdf-font-rewriter/bin/refont-helper`
+- Windows: `%APPDATA%\pdf-font-rewriter\bin\refont-helper.exe`
+- Linux: `~/.local/share/pdf-font-rewriter/bin/refont-helper`
+
+The plugin executes that helper locally to process PDFs. It reads the selected PDF and configured font files, then writes a rewritten PDF and an audit JSON file into the vault. The plugin does not upload PDFs, fonts, or audit output to any remote service.
+
+Network use is limited to downloading/updating the helper from this repository's GitHub Releases.
+
 Build the local helper:
 
 ```bash
@@ -69,7 +85,7 @@ Release artifacts are separated:
 - Obsidian marketplace/plugin assets: `obsidian-plugin/main.js`, `obsidian-plugin/manifest.json`, `obsidian-plugin/styles.css`
 - Helper release assets: `release/helper/helper-manifest.json`, `release/helper/refont-helper-<platform>`
 
-GitHub tag releases are handled by `.github/workflows/release.yml`. A `v0.1.0` tag builds:
+GitHub tag releases are handled by `.github/workflows/release.yml`. A `v0.1.1` tag builds:
 
 - `refont-helper-macos-arm64`
 - `refont-helper-macos-x64`
@@ -77,3 +93,7 @@ GitHub tag releases are handled by `.github/workflows/release.yml`. A `v0.1.0` t
 - `refont-helper-linux-x64`
 - `helper-manifest.json`
 - Obsidian `main.js`, `manifest.json`, and `styles.css`
+
+## License
+
+Apache-2.0. See `LICENSE`.
