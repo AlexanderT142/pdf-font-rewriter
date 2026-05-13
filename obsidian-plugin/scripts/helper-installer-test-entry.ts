@@ -5,6 +5,7 @@ import path from "path";
 import { pathToFileURL } from "url";
 
 import { installOrUpdateHelper } from "../src/helperInstaller";
+import { HELPER_VERSION } from "../src/helperRelease";
 import type { PdfFontRewriterSettings } from "../src/settings";
 import { platformTag } from "../src/platform";
 
@@ -48,6 +49,10 @@ if (digest !== plugin.settings.helperSha256) {
 
 if (plugin.settings.helperPlatform !== platformTag()) {
   throw new Error(`Installed helper platform mismatch: ${plugin.settings.helperPlatform}`);
+}
+
+if (plugin.settings.helperVersion !== HELPER_VERSION) {
+  throw new Error(`Installed helper version mismatch: ${plugin.settings.helperVersion}`);
 }
 
 console.log(helperPath);
