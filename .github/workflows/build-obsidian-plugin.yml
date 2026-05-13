@@ -4,12 +4,18 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
       - "obsidian-plugin/**"
       - ".github/workflows/build-obsidian-plugin.yml"
   push:
     branches:
       - main
     paths:
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
       - "obsidian-plugin/**"
       - ".github/workflows/build-obsidian-plugin.yml"
 
@@ -24,7 +30,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: obsidian-plugin/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            obsidian-plugin/package-lock.json
+
+      - name: Install root scanner dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Typecheck root scanner entrypoint
+        run: npm run typecheck:obsidian-root
 
       - name: Install dependencies
         working-directory: obsidian-plugin
