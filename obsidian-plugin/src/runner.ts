@@ -109,7 +109,7 @@ async function runHelper(
         return;
       }
       settled = true;
-      clearTimeout(timeout);
+      window.clearTimeout(timeout);
       if (stderr.trim()) {
         console.warn("PDF Font Rewriter helper stderr:", stderr);
       }
@@ -120,7 +120,7 @@ async function runHelper(
       }
     };
 
-    const timeout = setTimeout(() => {
+    const timeout = window.setTimeout(() => {
       child.kill();
       finish(new Error("PDF Font Rewriter helper timed out after 10 minutes."));
     }, HELPER_TIMEOUT_MS);
@@ -196,7 +196,7 @@ async function waitForVaultFile(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+    window.setTimeout(resolve, ms);
   });
 }
 
