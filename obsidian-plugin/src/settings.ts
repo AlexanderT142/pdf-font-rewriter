@@ -21,9 +21,20 @@ export interface PdfFontRewriterSettings {
   cjkFallbackPath: string;
   outputMode: "copy" | "replace";
   outputSuffix: string;
+  pageScope: "visible-window" | "custom" | "all";
+  visiblePageRadius: number;
   pageRange: string;
   openAfterRewrite: boolean;
   mode: "conservative" | "normal";
+  backups: PdfOriginalBackup[];
+}
+
+export interface PdfOriginalBackup {
+  vaultPath: string;
+  backupPath: string;
+  createdAt: string;
+  sourceSize: number;
+  sourceMtimeMs: number;
 }
 
 export const DEFAULT_SETTINGS: PdfFontRewriterSettings = {
@@ -38,9 +49,12 @@ export const DEFAULT_SETTINGS: PdfFontRewriterSettings = {
   cjkFallbackPath: "",
   outputMode: "copy",
   outputSuffix: "_refonted",
+  pageScope: "visible-window",
+  visiblePageRadius: 1,
   pageRange: "",
   openAfterRewrite: true,
   mode: "conservative",
+  backups: [],
 };
 
 export class PdfFontRewriterSettingTab extends PluginSettingTab {
@@ -144,19 +158,54 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
-      .setName("Pages to rewrite")
-      .setDesc(
-        'Leave blank for the whole PDF, or enter PDF sheet numbers like "1-3,8" for a faster test. These are not always the printed page labels inside the book.',
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder("all pages")
-          .setValue(this.plugin.settings.pageRange)
+      .setName("Default scope")
+      .setDesc("For normal use, rewrite the visible PDF sheet and nearby sheets instead of the whole book.")
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("visible-window", "Visible page + nearby pages")
+          .addOption("custom", "Custom PDF sheet numbers")
+          .addOption("all", "Whole PDF")
+          .setValue(this.plugin.settings.pageScope)
           .onChange(async (value) => {
-            this.plugin.settings.pageRange = value.trim();
+            this.plugin.settings.pageScope = value as PdfFontRewriterSettings["pageScope"];
             await this.plugin.saveSettings();
+            this.display();
           }),
       );
+
+    if (this.plugin.settings.pageScope === "visible-window") {
+      new Setting(containerEl)
+        .setName("Nearby pages")
+        .setDesc("How many sheets before and after the visible sheet should be rewritten.")
+        .addDropdown((dropdown) =>
+          dropdown
+            .addOption("0", "Visible page only")
+            .addOption("1", "One page before and after")
+            .addOption("2", "Two pages before and after")
+            .setValue(String(this.plugin.settings.visiblePageRadius))
+            .onChange(async (value) => {
+              this.plugin.settings.visiblePageRadius = Number(value);
+              await this.plugin.saveSettings();
+            }),
+        );
+    }
+
+    if (this.plugin.settings.pageScope === "custom") {
+      new Setting(containerEl)
+        .setName("Pages to rewrite")
+        .setDesc(
+          'Use PDF sheet numbers like "1-3,8". These are not always the printed page labels inside the book.',
+        )
+        .addText((text) =>
+          text
+            .setPlaceholder("1-3,8")
+            .setValue(this.plugin.settings.pageRange)
+            .onChange(async (value) => {
+              this.plugin.settings.pageRange = value.trim();
+              await this.plugin.saveSettings();
+            }),
+        );
+    }
 
     new Setting(containerEl)
       .setName("Open result when finished")

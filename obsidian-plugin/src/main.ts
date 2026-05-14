@@ -4,9 +4,11 @@ import { isBuiltinFontId } from "./builtinFonts";
 import { DEFAULT_HELPER_RELEASE_BASE_URL } from "./helperRelease";
 import { installOrUpdateHelper } from "./helperInstaller";
 import { PdfRewriteModal } from "./rewriteModal";
+import { restoreActivePdfOriginal } from "./runner";
 import {
   DEFAULT_SETTINGS,
   PdfFontRewriterSettingTab,
+  type PdfOriginalBackup,
   type PdfFontRewriterSettings,
 } from "./settings";
 
@@ -51,6 +53,26 @@ export default class PdfFontRewriterPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: "restore-active-pdf-original",
+      name: "Restore active PDF from backup",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        const canRun = file instanceof TFile && file.extension.toLowerCase() === "pdf";
+        if (checking) {
+          return canRun;
+        }
+        if (!canRun || !file) {
+          new Notice("PDF Font Rewriter: open a PDF file first.");
+          return false;
+        }
+        restoreActivePdfOriginal(this, file).catch((error: unknown) => {
+          console.error(error);
+        });
+        return true;
+      },
+    });
+
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
         if (!isPdfFile(file)) {
@@ -62,6 +84,17 @@ export default class PdfFontRewriterPlugin extends Plugin {
             .setTitle("Rewrite PDF font")
             .setIcon("type")
             .onClick(() => this.openRewriteModal(file));
+        });
+
+        menu.addItem((item) => {
+          item
+            .setTitle("Restore original PDF")
+            .setIcon("rotate-ccw")
+            .onClick(() => {
+              restoreActivePdfOriginal(this, file).catch((error: unknown) => {
+                console.error(error);
+              });
+            });
         });
       }),
     );
@@ -86,6 +119,34 @@ export default class PdfFontRewriterPlugin extends Plugin {
     if (this.settings.outputMode !== "copy" && this.settings.outputMode !== "replace") {
       this.settings.outputMode = DEFAULT_SETTINGS.outputMode;
       migrated = true;
+    }
+    if (!isPageScope(savedSettings.pageScope)) {
+      this.settings.pageScope = this.settings.pageRange.trim()
+        ? "custom"
+        : DEFAULT_SETTINGS.pageScope;
+      migrated = true;
+    }
+    if (
+      !Number.isInteger(savedSettings.visiblePageRadius) ||
+      this.settings.visiblePageRadius < 0
+    ) {
+      this.settings.visiblePageRadius = DEFAULT_SETTINGS.visiblePageRadius;
+      migrated = true;
+    }
+    if (this.settings.visiblePageRadius > 2) {
+      this.settings.visiblePageRadius = 2;
+      migrated = true;
+    }
+    if (Array.isArray(savedSettings.backups)) {
+      this.settings.backups = savedSettings.backups.filter(isBackupRecord).slice(0, 50);
+      if (this.settings.backups.length !== savedSettings.backups.length) {
+        migrated = true;
+      }
+    } else {
+      this.settings.backups = [];
+      if (Object.prototype.hasOwnProperty.call(savedSettings, "backups")) {
+        migrated = true;
+      }
     }
     if (shouldMigrateHelperReleaseUrl(savedSettings.helperReleaseBaseUrl)) {
       this.settings.helperReleaseBaseUrl = DEFAULT_HELPER_RELEASE_BASE_URL;
@@ -122,6 +183,25 @@ function isSettingsRecord(value: unknown): value is Partial<PdfFontRewriterSetti
 
 function isPdfFile(file: TAbstractFile | null): file is TFile {
   return file instanceof TFile && file.extension.toLowerCase() === "pdf";
+}
+
+function isPageScope(value: unknown): value is PdfFontRewriterSettings["pageScope"] {
+  return value === "visible-window" || value === "custom" || value === "all";
+}
+
+function isBackupRecord(value: unknown): value is PdfOriginalBackup {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const record = value as Partial<PdfOriginalBackup>;
+  return (
+    typeof record.vaultPath === "string" &&
+    typeof record.backupPath === "string" &&
+    typeof record.createdAt === "string" &&
+    typeof record.sourceSize === "number" &&
+    typeof record.sourceMtimeMs === "number"
+  );
 }
 
 function shouldMigrateHelperReleaseUrl(value: unknown): boolean {

@@ -1,4 +1,6 @@
 import { spawn } from "child_process";
+import { createHash } from "crypto";
+import { constants as fsConstants } from "fs";
 import fs from "fs/promises";
 import path from "path";
 
@@ -7,11 +9,20 @@ import { FileSystemAdapter, Notice, TFile, normalizePath } from "obsidian";
 import type PdfFontRewriterPlugin from "./main";
 import { resolveTargetFontPath } from "./builtinFonts";
 import { ensureHelperInstalled } from "./helperInstaller";
-import { defaultReportsDir } from "./platform";
+import { defaultBackupsDir, defaultReportsDir } from "./platform";
+import type { PdfOriginalBackup } from "./settings";
 
 const HELPER_TIMEOUT_MS = 1000 * 60 * 10;
 
-export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFile): Promise<void> {
+export interface RewriteOptions {
+  pageRangeOverride?: string;
+}
+
+export async function rewriteActivePdf(
+  plugin: PdfFontRewriterPlugin,
+  file: TFile,
+  options: RewriteOptions = {},
+): Promise<void> {
   if (file.extension.toLowerCase() !== "pdf") {
     new Notice("PDF Font Rewriter: active file is not a PDF.");
     return;
@@ -36,7 +47,7 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
   const reportPath = nextReportPath(file);
   let pageRange = "";
   try {
-    pageRange = normalizePageRange(settings.pageRange);
+    pageRange = normalizePageRange(options.pageRangeOverride ?? settings.pageRange);
   } catch (error) {
     new Notice('PDF Font Rewriter: pages must look like "1-3,8".');
     throw error;
@@ -70,6 +81,10 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
   );
 
   try {
+    if (outputTarget.mode === "replace") {
+      await ensureOriginalBackup(plugin, file, inputPath);
+    }
+
     await runHelper(helperPath, args, {
       cwd: path.dirname(inputPath),
       onPage: (page) => {
@@ -123,6 +138,28 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
     console.error(error);
     new Notice("PDF Font Rewriter failed. Check the developer console for details.");
     throw error;
+  }
+}
+
+export async function restoreActivePdfOriginal(
+  plugin: PdfFontRewriterPlugin,
+  file: TFile,
+): Promise<void> {
+  if (file.extension.toLowerCase() !== "pdf") {
+    new Notice("PDF Font Rewriter: active file is not a PDF.");
+    return;
+  }
+
+  const backup = await findOriginalBackup(plugin, file);
+  if (!backup) {
+    new Notice("PDF Font Rewriter: no restore copy found for this PDF.");
+    return;
+  }
+
+  await replaceVaultFile(plugin, file, backup.backupPath);
+  new Notice(`PDF Font Rewriter: restored ${file.path} from its original copy.`);
+  if (plugin.settings.openAfterRewrite) {
+    await reopenVaultFile(plugin, file);
   }
 }
 
@@ -232,6 +269,60 @@ async function replaceVaultFile(
     replacement.byteOffset + replacement.byteLength,
   );
   await plugin.app.vault.modifyBinary(file, data);
+}
+
+async function ensureOriginalBackup(
+  plugin: PdfFontRewriterPlugin,
+  file: TFile,
+  inputPath: string,
+): Promise<PdfOriginalBackup> {
+  const existing = await findOriginalBackup(plugin, file);
+  if (existing) {
+    return existing;
+  }
+
+  await fs.mkdir(defaultBackupsDir(), { recursive: true });
+  const backupPath = originalBackupPath(file);
+  try {
+    await fs.copyFile(inputPath, backupPath, fsConstants.COPYFILE_EXCL);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+      throw error;
+    }
+  }
+
+  const sourceStats = await fs.stat(inputPath);
+  const backup: PdfOriginalBackup = {
+    vaultPath: file.path,
+    backupPath,
+    createdAt: new Date().toISOString(),
+    sourceSize: sourceStats.size,
+    sourceMtimeMs: sourceStats.mtimeMs,
+  };
+  plugin.settings.backups = [
+    backup,
+    ...plugin.settings.backups.filter((item) => item.vaultPath !== file.path),
+  ].slice(0, 50);
+  await plugin.saveSettings();
+  new Notice("PDF Font Rewriter: restore copy saved outside your vault.");
+  return backup;
+}
+
+async function findOriginalBackup(
+  plugin: PdfFontRewriterPlugin,
+  file: TFile,
+): Promise<PdfOriginalBackup | null> {
+  const backup = plugin.settings.backups.find((item) => item.vaultPath === file.path);
+  if (!backup) {
+    return null;
+  }
+
+  try {
+    await fs.access(backup.backupPath);
+    return backup;
+  } catch {
+    return null;
+  }
 }
 
 interface RewriteReport {
@@ -372,6 +463,11 @@ function nextReportPath(file: TFile): string {
 
 function tempOutputPath(file: TFile): string {
   return path.join(defaultReportsDir(), `${Date.now()}-${safeFileBase(file)}-output.pdf`);
+}
+
+function originalBackupPath(file: TFile): string {
+  const suffix = createHash("sha256").update(file.path).digest("hex").slice(0, 12);
+  return path.join(defaultBackupsDir(), `${safeFileBase(file)}-${suffix}-original.pdf`);
 }
 
 function safeFileBase(file: TFile): string {

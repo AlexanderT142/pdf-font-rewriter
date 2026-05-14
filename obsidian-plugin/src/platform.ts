@@ -13,6 +13,10 @@ export function defaultReportsDir(): string {
   return path.join(defaultDataDir(), "reports");
 }
 
+export function defaultBackupsDir(): string {
+  return path.join(defaultDataDir(), "backups");
+}
+
 function defaultDataDir(): string {
   if (process.platform === "darwin") {
     return path.join(os.homedir(), "Library", "Application Support", "pdf-font-rewriter");
