@@ -8,6 +8,7 @@ from pathlib import Path
 from statistics import median
 import re
 import string
+import unicodedata
 
 import fitz
 
@@ -39,6 +40,10 @@ MIN_CORRECT_CONFIDENCE = 0.82
 MIN_CORRECT_MARGIN = 0.16
 MIN_VISUAL_MARGIN = 0.12
 UNRESOLVED_RISK_THRESHOLD = 0.72
+NATIVE_TEXT_MAP_SUSPICIOUS_TOKENS = {
+    "exewtion": "execution",
+    "selfobservation": "self-observation",
+}
 
 
 @dataclass(frozen=True)
@@ -183,6 +188,33 @@ def line_text_layer_rejection_reason(line: TextLine) -> str:
     return ""
 
 
+def native_text_mapping_rejection_reason(line: TextLine) -> str:
+    """Reject native lines whose Unicode text is probably not what was painted.
+
+    Native PDFs do not give us a separate OCR witness. This deliberately avoids
+    broad spelling correction and only catches high-signal font-map failures:
+    punctuation embedded inside alphabetic words, obvious ligature/cmap damage,
+    and non-Latin letters inside otherwise Latin body text.
+    """
+
+    text = line.text
+    if not text.strip():
+        return ""
+
+    for token in _native_text_tokens(text):
+        normalized = token.strip(string.punctuation).lower()
+        if normalized in NATIVE_TEXT_MAP_SUSPICIOUS_TOKENS:
+            return f"suspicious native text mapping ({normalized}->{NATIVE_TEXT_MAP_SUSPICIOUS_TOKENS[normalized]})"
+        if _has_inline_symbol_damage(token):
+            return f"suspicious native text mapping ({token})"
+
+    odd_script = _odd_script_letter(text)
+    if odd_script:
+        return f"suspicious native text mapping ({odd_script})"
+
+    return ""
+
+
 def _map_line_chars(line: TextLine) -> list[_MappedChar]:
     result: list[_MappedChar] = []
     cursor = 0
@@ -206,6 +238,42 @@ def _map_line_chars(line: TextLine) -> list[_MappedChar]:
             )
             cursor = index + len(char.char)
     return result
+
+
+def _native_text_tokens(text: str) -> list[str]:
+    return [token for token in re.split(r"\s+", text.strip()) if token]
+
+
+def _has_inline_symbol_damage(token: str) -> bool:
+    if not re.search(r"[A-Za-z]", token):
+        return False
+    return bool(
+        re.search(r"[A-Za-z]{2,}[\(\{\[\]\}/\\|]+-?[A-Za-z]{2,}", token)
+        or re.search(r"[A-Za-z]+-?[\(\{\[\]\}/\\|]+[A-Za-z]{2,}", token)
+    )
+
+
+def _odd_script_letter(text: str) -> str:
+    letters = [char for char in text if char.isalpha()]
+    if len(letters) < 12:
+        return ""
+
+    latin_count = sum(1 for char in letters if _is_latin_letter(char))
+    if latin_count / len(letters) < 0.82:
+        return ""
+
+    for char in letters:
+        if _is_latin_letter(char):
+            continue
+        name = unicodedata.name(char, "")
+        if "GREEK" in name or "CJK" in name or "HIRAGANA" in name or "KATAKANA" in name or "HANGUL" in name:
+            continue
+        return char
+    return ""
+
+
+def _is_latin_letter(char: str) -> bool:
+    return "LATIN" in unicodedata.name(char, "")
 
 
 def _suspicion_signals(text: str, index: int, char: str) -> list[str]:

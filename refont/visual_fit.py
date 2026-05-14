@@ -122,6 +122,8 @@ def classify_line_role(
         return (LineRole.MIXED_LATIN_CJK, 0.78)
     if line_height <= body_height * 0.85 and (line.bbox[1] > page_stats.height_pt * 0.45 or visible_count <= 90):
         return (LineRole.FOOTNOTE, 0.68)
+    if width_ratio >= 0.42 and visible_count >= 35 and line_height <= body_height * 1.35:
+        return (LineRole.BODY, 0.80)
     if line_height >= body_height * 1.20 or (upper_ratio >= 0.70 and visible_count <= 80):
         return (LineRole.HEADING, 0.74)
     if width_ratio >= 0.25 and 0.70 * body_height <= line_height <= 1.30 * body_height:

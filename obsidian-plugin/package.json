@@ -1,6 +1,6 @@
 {
   "name": "pdf-font-rewriter-obsidian",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "description": "Obsidian desktop plugin shell for PDF Font Rewriter.",
   "license": "Apache-2.0",
@@ -14,5 +14,8 @@
     "esbuild": "^0.25.4",
     "obsidian": "^1.8.7",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^5.7.284"
   }
 }

@@ -36,7 +36,7 @@ function chunkFontBase64(base64) {
 const fontBase64ChunksPlugin = {
   name: "font-base64-chunks",
   setup(build) {
-    build.onLoad({ filter: /\.ttf$/ }, async (args) => {
+    build.onLoad({ filter: /\.(?:ttf|otf)$/ }, async (args) => {
       const base64 = (await fs.readFile(args.path)).toString("base64");
       const chunks = chunkFontBase64(base64);
 

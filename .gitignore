@@ -1,5 +1,6 @@
 .DS_Store
 .venv/
+.local-obsidian-live-test/
 __pycache__/
 *.py[cod]
 *.pdf

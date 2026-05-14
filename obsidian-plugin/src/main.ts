@@ -3,6 +3,7 @@ import { Notice, Plugin, TAbstractFile, TFile } from "obsidian";
 import { isBuiltinFontId } from "./builtinFonts";
 import { DEFAULT_HELPER_RELEASE_BASE_URL } from "./helperRelease";
 import { installOrUpdateHelper } from "./helperInstaller";
+import { LIVE_REFONT_VIEW_TYPE, LiveRefontPdfView, openLiveRefontView } from "./liveRefontView";
 import { PdfRewriteModal } from "./rewriteModal";
 import { restoreActivePdfOriginal } from "./runner";
 import {
@@ -17,6 +18,11 @@ export default class PdfFontRewriterPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
+
+    this.registerView(LIVE_REFONT_VIEW_TYPE, (leaf) => new LiveRefontPdfView(leaf, this));
+    if (this.settings.openPdfWithLiveView) {
+      this.registerExtensions(["pdf"], LIVE_REFONT_VIEW_TYPE);
+    }
 
     this.addRibbonIcon("type", "Rewrite PDF font", () => {
       this.openRewriteModalForActiveFile();
@@ -50,6 +56,26 @@ export default class PdfFontRewriterPlugin extends Plugin {
             console.error(error);
             new Notice("PDF Font Rewriter: helper install failed.");
           });
+      },
+    });
+
+    this.addCommand({
+      id: "open-active-pdf-live-refont-view",
+      name: "Open active PDF in Live Refont View",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        const canRun = file instanceof TFile && file.extension.toLowerCase() === "pdf";
+        if (checking) {
+          return canRun;
+        }
+        if (!canRun || !file) {
+          new Notice("PDF Font Rewriter: open a PDF file first.");
+          return false;
+        }
+        openLiveRefontView(this, file).catch((error: unknown) => {
+          console.error(error);
+        });
+        return true;
       },
     });
 
@@ -88,6 +114,17 @@ export default class PdfFontRewriterPlugin extends Plugin {
 
         menu.addItem((item) => {
           item
+            .setTitle("Open in Live Refont View")
+            .setIcon("scan-text")
+            .onClick(() => {
+              openLiveRefontView(this, file).catch((error: unknown) => {
+                console.error(error);
+              });
+            });
+        });
+
+        menu.addItem((item) => {
+          item
             .setTitle("Restore original PDF")
             .setIcon("rotate-ccw")
             .onClick(() => {
@@ -118,6 +155,10 @@ export default class PdfFontRewriterPlugin extends Plugin {
     }
     if (this.settings.outputMode !== "copy" && this.settings.outputMode !== "replace") {
       this.settings.outputMode = DEFAULT_SETTINGS.outputMode;
+      migrated = true;
+    }
+    if (typeof savedSettings.openPdfWithLiveView !== "boolean") {
+      this.settings.openPdfWithLiveView = DEFAULT_SETTINGS.openPdfWithLiveView;
       migrated = true;
     }
     if (!isPageScope(savedSettings.pageScope)) {
@@ -205,11 +246,16 @@ function isBackupRecord(value: unknown): value is PdfOriginalBackup {
 }
 
 function shouldMigrateHelperReleaseUrl(value: unknown): boolean {
-  if (typeof value !== "string" || !value.trim()) {
+  if (typeof value !== "string") {
     return true;
   }
 
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === DEFAULT_HELPER_RELEASE_BASE_URL) {
+    return false;
+  }
+
   return /^https:\/\/github\.com\/AlexanderT142\/pdf-font-rewriter\/releases\/download\/v?\d+\.\d+\.\d+$/.test(
-    value.trim(),
+    trimmed,
   );
 }

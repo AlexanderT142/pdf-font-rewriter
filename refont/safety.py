@@ -7,7 +7,11 @@ import fitz
 from .font_utils import build_visual_profile_chain, is_private_use, missing_codepoints, segment_by_font_coverage
 from .models import FontInfo, PageIndex, RectTuple, TextLine, TextRun
 from .region_policy import apply_region_coherence_policy
-from .text_layer_validator import line_text_layer_rejection_reason, validate_page_text_layer
+from .text_layer_validator import (
+    line_text_layer_rejection_reason,
+    native_text_mapping_rejection_reason,
+    validate_page_text_layer,
+)
 from .visual_fit import analyze_page_visual_stats, fit_visual_geometry
 
 
@@ -45,6 +49,10 @@ def analyze_page_safety(page: fitz.Page, page_index: PageIndex, font_chain: list
         text_layer_reason = line_text_layer_rejection_reason(line)
         if text_layer_reason:
             reasons.append(text_layer_reason)
+
+        native_mapping_reason = native_text_mapping_rejection_reason(line)
+        if native_mapping_reason:
+            reasons.append(native_mapping_reason)
 
         missing = missing_codepoints(line.text, font_chain)
         if missing:

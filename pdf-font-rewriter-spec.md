@@ -420,7 +420,7 @@ Produce two outputs alongside the PDF:
 {
   "input_file": "input.pdf",
   "output_file": "output.pdf",
-  "target_font": "Literata-Regular.ttf",
+  "target_font": "CharisSIL-Regular.ttf",
   "total_pages": 238,
   "pages_fully_converted": 214,
   "pages_partially_converted": 9,
@@ -460,7 +460,7 @@ PDF Font Rewriter — Conversion Report
 ======================================
 Input:  input.pdf (238 pages)
 Output: output.pdf
-Font:   Literata-Regular.ttf
+Font:   CharisSIL-Regular.ttf
 
 Results:
   Fully converted:      214 pages (89.9%)
@@ -481,7 +481,7 @@ Pages with issues: 15, 23, 45, 67, 89, 102, 103, 105, 134, 156, 178, 189, 201, 2
 ## CLI Interface
 
 ```
-python refont.py INPUT.pdf --font ./fonts/Literata-Regular.ttf [OPTIONS]
+python refont.py INPUT.pdf --font ./fonts/CharisSIL-Regular.ttf [OPTIONS]
 
 Required:
   INPUT.pdf                    Input PDF file path
@@ -502,13 +502,13 @@ Example usage:
 
 ```bash
 # Basic usage
-python refont.py book.pdf --font ./fonts/Literata-Regular.ttf
+python refont.py book.pdf --font ./fonts/CharisSIL-Regular.ttf
 
 # Dry run to see what would be converted
-python refont.py paper.pdf --font ./fonts/SourceSerif4-Regular.ttf --dry-run
+python refont.py paper.pdf --font ./fonts/EBGaramond-Regular.ttf --dry-run
 
 # Process specific pages with CJK support
-python refont.py mixed.pdf --font ./fonts/Literata-Regular.ttf \
+python refont.py mixed.pdf --font ./fonts/NotoSans-Regular.ttf \
   --cjk-fallback ./fonts/NotoSerifCJKsc-Regular.otf \
   --pages 1-50
 ```

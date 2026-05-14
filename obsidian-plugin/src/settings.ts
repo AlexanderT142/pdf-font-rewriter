@@ -21,6 +21,7 @@ export interface PdfFontRewriterSettings {
   cjkFallbackPath: string;
   outputMode: "copy" | "replace";
   outputSuffix: string;
+  openPdfWithLiveView: boolean;
   pageScope: "visible-window" | "custom" | "all";
   visiblePageRadius: number;
   pageRange: string;
@@ -49,6 +50,7 @@ export const DEFAULT_SETTINGS: PdfFontRewriterSettings = {
   cjkFallbackPath: "",
   outputMode: "copy",
   outputSuffix: "_refonted",
+  openPdfWithLiveView: false,
   pageScope: "visible-window",
   visiblePageRadius: 1,
   pageRange: "",
@@ -156,6 +158,20 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
             }),
         );
     }
+
+    new Setting(containerEl)
+      .setName("Open PDFs with Live Refont View")
+      .setDesc(
+        "Experimental: use the plugin's PDF.js view for PDFs so live scroll-time refonting can run in-place. Reload Obsidian after changing this.",
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.openPdfWithLiveView)
+          .onChange(async (value) => {
+            this.plugin.settings.openPdfWithLiveView = value;
+            await this.plugin.saveSettings();
+          }),
+      );
 
     new Setting(containerEl)
       .setName("Default scope")
@@ -270,7 +286,9 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Helper release URL")
-      .setDesc("Advanced: base URL containing helper-manifest.json and helper binary assets.")
+      .setDesc(
+        "Advanced: base URL containing helper-manifest.json and helper binary assets. Leave blank to use the helper binary path directly.",
+      )
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_HELPER_RELEASE_BASE_URL)

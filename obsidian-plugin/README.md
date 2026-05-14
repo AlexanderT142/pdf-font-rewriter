@@ -8,9 +8,15 @@ The plugin calls the packaged `refont-helper` binary from the local app-data dir
 - Windows: `%APPDATA%\pdf-font-rewriter\bin\refont-helper.exe`
 - Linux: `~/.local/share/pdf-font-rewriter/bin/refont-helper`
 
-On first conversion, the plugin downloads `helper-manifest.json`, selects the matching platform helper, verifies its SHA-256 hash, and installs it into that app-data path.
+On first conversion, the plugin downloads `helper-manifest.json`, selects the matching platform helper, verifies its SHA-256 hash, and installs it into that app-data path. For local development, leave the helper release URL blank and point the helper binary path at a manually installed `refont-helper`.
 
-The plugin reads the selected PDF and configured font files, then writes a rewritten PDF into the vault when text is changed. By default it creates a separate PDF; users can opt into replacing the current PDF after a successful rewrite. Replace mode saves the first restore copy for that PDF outside the vault before overwriting the same file path. Technical audit reports are stored in the plugin's local app-data folder. It opens or reopens the result when conversion finishes; it does not live-edit Obsidian's built-in PDF viewer page. It does not upload PDFs, fonts, backups, or audit reports to any remote service. Network use is limited to downloading or updating the helper from GitHub Releases.
+The classic rewrite command reads the selected PDF and configured font files, then writes a rewritten PDF into the vault when text is changed. By default it creates a separate PDF; users can opt into replacing the current PDF after a successful rewrite. Replace mode saves the first restore copy for that PDF outside the vault before overwriting the same file path. Technical audit reports are stored in the plugin's local app-data folder. It opens or reopens the exported result when conversion finishes. It does not upload PDFs, fonts, backups, or audit reports to any remote service. Network use is limited to downloading or updating the helper from GitHub Releases.
+
+## Experimental Live Refont View
+
+The plugin also includes an experimental `Live Refont View`. This is the first implementation step toward scroll-time refonting: it registers a custom Obsidian view, renders PDF pages with PDF.js, owns the scroll container, and keeps a PDF.js text layer for selection. It asks the helper for page-level refont plans, renders a hidden text-suppressed PDF.js canvas, patches approved text pixels from that textless render, and draws replacement text on an overlay canvas. The live planner has an export-safe tier plus a live-fallback tier for pages whose text is extractable but fails export-grade scale checks; the compositor still validates those regions with the textless pixel diff before drawing. The toolbar reports checked pages and any pages left original-only. The Python helper now also has `live-plan` and `live-server` entry points for page-level refont plans instead of finished output PDFs.
+
+Use the command palette action `Open active PDF in Live Refont View`, or right-click a PDF and choose `Open in Live Refont View`. The settings page has an opt-in toggle for opening PDFs with this view by default; changing that toggle requires reloading Obsidian because file-extension view registration happens at plugin load.
 
 ## Build
 

@@ -6,7 +6,7 @@ PDF Font Rewriter redraws safely replaceable PDF text in the font you choose. It
 
 By default it writes a new PDF next to the original. You can also choose **Replace current PDF** if you want the same file path to be updated after a successful rewrite.
 
-It does not live-edit the PDF viewer page like an ebook reader. The rewrite happens as a file conversion, then Obsidian opens or reopens the result when the rewrite finishes.
+For smoother reading, the plugin also includes an experimental **Live Refont View**. It opens a PDF in the plugin's own PDF.js view, plans each visible page with the local helper, erases approved original text pixels using a hidden textless render, and draws replacement text as you scroll. The original PDF remains the source of truth; exporting a rewritten PDF is still a separate action.
 
 It does not try to guess everything. If a page is image-only, rotated, too uncertain, or unsafe to redraw cleanly, the plugin leaves that part unchanged.
 
@@ -21,14 +21,14 @@ It does not try to guess everything. If a page is image-only, rotated, too uncer
 3. Click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Rewrite PDF font**, or run **PDF Font Rewriter: Rewrite active PDF font** from the command palette.
 4. Choose one of the built-in fonts, or choose **Custom font path** if you want to use your own `.ttf` or `.otf` file.
 5. Choose whether to create a separate PDF or replace the current PDF.
-6. Leave the scope on **Visible page + nearby pages** for normal reading. It rewrites the PDF sheet Obsidian is showing, plus the nearby sheets you choose, without using the printed page label inside the book.
-7. Click **Rewrite visible pages**.
+6. For live reading, run **PDF Font Rewriter: Open active PDF in Live Refont View** from the command palette, or right-click a PDF and choose **Open in Live Refont View**.
+7. To export a rewritten PDF instead, leave the scope on **Visible page + nearby pages** for normal reading, then click **Rewrite visible pages**. It rewrites the PDF sheet Obsidian is showing, plus the nearby sheets you choose, without using the printed page label inside the book.
 
 When text is changed, the plugin either writes a rewritten PDF next to the original PDF or replaces the current PDF, depending on the save option you chose. In replace mode, it first saves a restore copy outside the vault, then overwrites the same PDF path only after conversion succeeds. If the selected pages cannot be changed safely, it does not keep an unchanged output PDF.
 
 Obsidian users do not need Python or Python dependencies. The plugin installs its packaged desktop helper automatically.
 
-Built-in fonts include Libertinus Serif, Source Serif 4, Libre Baskerville, PT Serif, Libertinus Sans, Atkinson Hyperlegible, Fira Sans, and Work Sans.
+Built-in fonts include Charis SIL, XCharter, TeX Gyre Pagella, EB Garamond, Inter, Noto Sans, Open Sans, Lato, Atkinson Hyperlegible, Andika, and OpenDyslexic.
 
 ## What It Works Best On
 
@@ -63,7 +63,8 @@ PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
 - Native PDFs and searchable-scan hybrid PDFs are supported when they contain a clean visible text layer.
 - On hybrid scanned pages, the tool can validate and correct narrow high-confidence text-layer confusions, such as bracket/digit citation errors, against the scanned pixels before font replacement.
 - Conservative skip behavior applies to image-only scanned, RTL, vertical, rotated, widget, missing-glyph, bad-Unicode, unresolved suspicious OCR, or bad-fit content.
-- The rewrite engine processes selected pages and saves the PDF at the end. Replace mode writes to a temporary file first and overwrites the current PDF only after a successful conversion. It does not replace Obsidian's built-in PDF renderer or stream page changes into the currently open viewer.
+- The classic rewrite engine processes selected pages and saves the PDF at the end. Replace mode writes to a temporary file first and overwrites the current PDF only after a successful conversion.
+- Live Refont View is a separate custom PDF.js view. It does not mutate the source PDF while reading; it renders refonted pages in place and leaves export as a separate action.
 - The normal Obsidian workflow targets the visible PDF sheet plus nearby sheets. Manual sheet ranges and whole-PDF rewrites are still available for technical use.
 - Browser preview is accepted as a CLI flag but not implemented yet.
 - Bold/italic matching and form-field text rewriting are out of scope for v1.
@@ -154,4 +155,4 @@ GitHub tag releases are handled by `.github/workflows/release.yml`. A release ta
 
 Apache-2.0. See `LICENSE`.
 
-Bundled fonts are distributed under the SIL Open Font License 1.1. Source and license details are in `obsidian-plugin/fonts/README.md` and `obsidian-plugin/fonts/licenses/`.
+Bundled fonts are open-license fonts. Source and license details are in `obsidian-plugin/fonts/README.md` and `obsidian-plugin/fonts/licenses/`.
