@@ -1,4 +1,4 @@
 declare module "*.ttf" {
-  const base64: string;
-  export default base64;
+  const chunks: string[];
+  export default chunks;
 }

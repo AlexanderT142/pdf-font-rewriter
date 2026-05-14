@@ -22,7 +22,7 @@ export interface BuiltinFont {
   label: string;
   family: "serif" | "sans";
   fileName: string;
-  base64: string;
+  base64Chunks: readonly string[];
 }
 
 export const BUILTIN_FONTS: BuiltinFont[] = [
@@ -31,56 +31,56 @@ export const BUILTIN_FONTS: BuiltinFont[] = [
     label: "Serif - Libertinus Serif",
     family: "serif",
     fileName: "LibertinusSerif-Regular.ttf",
-    base64: libertinusSerifRegular,
+    base64Chunks: libertinusSerifRegular,
   },
   {
     id: "source-serif-4",
     label: "Serif - Source Serif 4",
     family: "serif",
     fileName: "SourceSerif4.ttf",
-    base64: sourceSerif4Regular,
+    base64Chunks: sourceSerif4Regular,
   },
   {
     id: "libre-baskerville",
     label: "Serif - Libre Baskerville",
     family: "serif",
     fileName: "LibreBaskerville.ttf",
-    base64: libreBaskervilleRegular,
+    base64Chunks: libreBaskervilleRegular,
   },
   {
     id: "pt-serif",
     label: "Serif - PT Serif",
     family: "serif",
     fileName: "PT_Serif-Web-Regular.ttf",
-    base64: ptSerifRegular,
+    base64Chunks: ptSerifRegular,
   },
   {
     id: "libertinus-sans",
     label: "Sans - Libertinus Sans",
     family: "sans",
     fileName: "LibertinusSans-Regular.ttf",
-    base64: libertinusSansRegular,
+    base64Chunks: libertinusSansRegular,
   },
   {
     id: "atkinson-hyperlegible",
     label: "Sans - Atkinson Hyperlegible",
     family: "sans",
     fileName: "AtkinsonHyperlegible-Regular.ttf",
-    base64: atkinsonHyperlegibleRegular,
+    base64Chunks: atkinsonHyperlegibleRegular,
   },
   {
     id: "fira-sans",
     label: "Sans - Fira Sans",
     family: "sans",
     fileName: "FiraSans-Regular.ttf",
-    base64: firaSansRegular,
+    base64Chunks: firaSansRegular,
   },
   {
     id: "work-sans",
     label: "Sans - Work Sans",
     family: "sans",
     fileName: "WorkSans.ttf",
-    base64: workSansRegular,
+    base64Chunks: workSansRegular,
   },
 ];
 
@@ -103,7 +103,7 @@ export async function resolveTargetFontPath(plugin: PdfFontRewriterPlugin): Prom
 
 async function ensureBuiltinFontInstalled(font: BuiltinFont): Promise<string> {
   const fontPath = path.join(defaultBuiltinFontsDir(), font.fileName);
-  const buffer = Buffer.from(font.base64, "base64");
+  const buffer = Buffer.from(font.base64Chunks.join(""), "base64");
   const expectedHash = sha256(buffer);
 
   try {
