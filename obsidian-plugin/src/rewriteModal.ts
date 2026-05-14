@@ -183,7 +183,7 @@ function detectCurrentPdfSheetNumber(
   file: TFile,
 ): number | null {
   const activeFile = plugin.app.workspace.getActiveFile();
-  const activeLeaf = plugin.app.workspace.activeLeaf;
+  const activeLeaf = plugin.app.workspace.getMostRecentLeaf();
   if (!activeFile || activeFile.path !== file.path || !activeLeaf) {
     return null;
   }
