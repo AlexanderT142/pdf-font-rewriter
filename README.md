@@ -1,44 +1,71 @@
 # PDF Font Rewriter
 
-Desktop-only Obsidian plugin for rewriting safely replaceable PDF text into a selected font while leaving image-only, rotated, unsupported, or geometrically unsafe content unchanged.
+Change the font inside a PDF from Obsidian without retyping it.
 
-## Obsidian Usage
+PDF Font Rewriter creates a new PDF where safely replaceable text is redrawn in the font you choose. It is useful for papers, handouts, exported documents, and scanned PDFs that still have a searchable text layer.
 
-Install the plugin from Obsidian Community plugins, then open **Settings → PDF Font Rewriter** and set:
+It does not try to guess everything. If a page is image-only, rotated, too uncertain, or unsafe to redraw cleanly, the plugin leaves that part unchanged and records what happened in an audit file.
 
-- **Target font path**: absolute path to a `.ttf` or `.otf` font.
-- **CJK fallback font path**: optional absolute path to a CJK font for Chinese/Japanese/Korean PDFs.
-- **Mode**: keep **Conservative** unless you want the helper to attempt more replacements.
+![Before and after example on a searchable scanned PDF](https://raw.githubusercontent.com/AlexanderT142/pdf-font-rewriter/main/docs/assets/socialsystem-current-before-after.png)
 
-Open a PDF in Obsidian and run **PDF Font Rewriter: Rewrite active PDF font** from the command palette. The plugin writes a rewritten PDF and an audit JSON file next to the original PDF in the vault.
+![Original, serif rewrite, and two sans-serif rewrites](https://raw.githubusercontent.com/AlexanderT142/pdf-font-rewriter/main/docs/assets/socialsystem-current-font-grid.png)
 
-Obsidian users do not need Python or Python dependencies. The plugin installs a packaged native helper automatically on desktop.
+## How To Use It
 
-## Current MVP Boundaries
+1. Install **PDF Font Rewriter** from Obsidian Community plugins.
+2. Open **Settings -> PDF Font Rewriter**.
+3. Choose a target `.ttf` or `.otf` font file from your computer.
+4. Open a PDF in Obsidian.
+5. Run **PDF Font Rewriter: Rewrite active PDF font** from the command palette.
 
-- Native and searchable-scan hybrid pages are supported when they contain a clean visible text layer.
-- The tool is not a general OCR engine. On hybrid pages it can validate and correct narrow high-confidence text-layer confusions, such as bracket/digit citation errors, against the scanned pixels before font replacement.
-- Conservative skip behavior for image-only scanned, RTL, vertical, rotated, widget, missing-glyph, bad-Unicode, unresolved suspicious OCR, or bad-fit content.
-- Browser preview is accepted as a CLI flag but not implemented yet.
-- Bold/italic matching and form-field text rewriting are out of scope for v1.
+The plugin writes two files next to the original PDF in your vault:
 
-## Obsidian Plugin Disclosure
+- a rewritten PDF
+- an audit JSON file explaining what changed and what was skipped
+
+Obsidian users do not need Python or Python dependencies. The plugin installs its packaged desktop helper automatically.
+
+## What It Works Best On
+
+- PDFs with selectable text
+- scanned PDFs where the text is still searchable/selectable
+- documents where you want the words preserved but the typeface changed
+- conservative partial conversion, where uncertain text should be left alone
+
+## What It Does Not Do
+
+- It is not a full OCR app.
+- It does not rewrite pure image-only scans.
+- It skips text when the replacement would not fit safely.
+- It skips unsupported, rotated, vertical, RTL, form-field, or missing-glyph text.
+
+## Privacy And Files
+
+PDF Font Rewriter runs locally on your computer. It reads the selected PDF and configured font files, then writes the rewritten PDF and audit file into your vault.
+
+The plugin does not upload PDFs, fonts, or audit output to any remote service.
+
+Network use is limited to downloading or updating the desktop helper from this repository's GitHub Releases. The helper download is selected for your OS/CPU platform and verified with SHA-256 before installation.
 
 PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
 
-The plugin downloads a native helper binary from this repository's GitHub Releases when the helper is missing or outdated. The downloaded helper is selected for the user's OS/CPU platform and verified against `helper-manifest.json` with SHA-256 before installation.
+## For People Who Are Technical
 
-The helper is installed outside the vault:
+### Current Boundaries
+
+- Native PDFs and searchable-scan hybrid PDFs are supported when they contain a clean visible text layer.
+- On hybrid scanned pages, the tool can validate and correct narrow high-confidence text-layer confusions, such as bracket/digit citation errors, against the scanned pixels before font replacement.
+- Conservative skip behavior applies to image-only scanned, RTL, vertical, rotated, widget, missing-glyph, bad-Unicode, unresolved suspicious OCR, or bad-fit content.
+- Browser preview is accepted as a CLI flag but not implemented yet.
+- Bold/italic matching and form-field text rewriting are out of scope for v1.
+
+### Helper Install Location
 
 - macOS: `~/Library/Application Support/pdf-font-rewriter/bin/refont-helper`
 - Windows: `%APPDATA%\pdf-font-rewriter\bin\refont-helper.exe`
 - Linux: `~/.local/share/pdf-font-rewriter/bin/refont-helper`
 
-The plugin executes that helper locally to process PDFs. It reads the selected PDF and configured font files, then writes a rewritten PDF and an audit JSON file into the vault. The plugin does not upload PDFs, fonts, or audit output to any remote service.
-
-Network use is limited to downloading/updating the helper from this repository's GitHub Releases.
-
-## Python CLI
+### Python CLI
 
 The same engine can be run directly as a Python CLI for development and advanced local use.
 
@@ -66,7 +93,7 @@ python -m refont chinese.pdf \
 
 On macOS the CLI also tries common system CJK fonts if `--cjk-fallback` is omitted.
 
-## Obsidian Packaging
+### Obsidian Packaging
 
 The Obsidian plugin is a desktop UI shell in `obsidian-plugin/`. It calls a packaged helper binary built from this Python engine.
 
