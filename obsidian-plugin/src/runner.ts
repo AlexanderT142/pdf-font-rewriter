@@ -6,6 +6,7 @@ import { promisify } from "util";
 import { FileSystemAdapter, Notice, TFile, normalizePath } from "obsidian";
 
 import type PdfFontRewriterPlugin from "./main";
+import { resolveTargetFontPath } from "./builtinFonts";
 import { ensureHelperInstalled } from "./helperInstaller";
 
 const execFileAsync = promisify(execFile);
@@ -18,7 +19,8 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
 
   const settings = plugin.settings;
   const helperPath = await ensureHelperInstalled(plugin);
-  await assertReadableFile(settings.targetFontPath, "target font");
+  const targetFontPath = await resolveTargetFontPath(plugin);
+  await assertReadableFile(targetFontPath, "target font");
   if (settings.cjkFallbackPath) {
     await assertReadableFile(settings.cjkFallbackPath, "CJK fallback font");
   }
@@ -37,7 +39,7 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
   const args = [
     inputPath,
     "--font",
-    settings.targetFontPath,
+    targetFontPath,
     "--output",
     outputPath,
     "--report",

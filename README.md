@@ -13,10 +13,10 @@ It does not try to guess everything. If a page is image-only, rotated, too uncer
 ## How To Use It
 
 1. Install **PDF Font Rewriter** from Obsidian Community plugins.
-2. Open **Settings -> PDF Font Rewriter**.
-3. Choose a target `.ttf` or `.otf` font file from your computer.
-4. Open a PDF in Obsidian.
-5. Run **PDF Font Rewriter: Rewrite active PDF font** from the command palette.
+2. Open a PDF in Obsidian.
+3. Click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Rewrite PDF font**, or run **PDF Font Rewriter: Rewrite active PDF font** from the command palette.
+4. Choose one of the built-in fonts, or choose **Custom font path** if you want to use your own `.ttf` or `.otf` file.
+5. Click **Rewrite PDF**.
 
 The plugin writes two files next to the original PDF in your vault:
 
@@ -24,6 +24,8 @@ The plugin writes two files next to the original PDF in your vault:
 - an audit JSON file explaining what changed and what was skipped
 
 Obsidian users do not need Python or Python dependencies. The plugin installs its packaged desktop helper automatically.
+
+Built-in fonts include Libertinus Serif, Source Serif 4, Libre Baskerville, PT Serif, Libertinus Sans, Atkinson Hyperlegible, Fira Sans, and Work Sans.
 
 ## What It Works Best On
 
@@ -41,11 +43,11 @@ Obsidian users do not need Python or Python dependencies. The plugin installs it
 
 ## Privacy And Files
 
-PDF Font Rewriter runs locally on your computer. It reads the selected PDF and configured font files, then writes the rewritten PDF and audit file into your vault.
+PDF Font Rewriter runs locally on your computer. It reads the selected PDF and selected font, then writes the rewritten PDF and audit file into your vault.
 
 The plugin does not upload PDFs, fonts, or audit output to any remote service.
 
-Network use is limited to downloading or updating the desktop helper from this repository's GitHub Releases. The helper download is selected for your OS/CPU platform and verified with SHA-256 before installation.
+Network use is limited to downloading or updating the desktop helper from this repository's GitHub Releases. The built-in fonts are bundled with the plugin and do not need a separate download. The helper download is selected for your OS/CPU platform and verified with SHA-256 before installation.
 
 PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
 
@@ -64,6 +66,14 @@ PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
 - macOS: `~/Library/Application Support/pdf-font-rewriter/bin/refont-helper`
 - Windows: `%APPDATA%\pdf-font-rewriter\bin\refont-helper.exe`
 - Linux: `~/.local/share/pdf-font-rewriter/bin/refont-helper`
+
+### Built-In Font Location
+
+The plugin writes bundled fonts on demand into:
+
+- macOS: `~/Library/Application Support/pdf-font-rewriter/fonts`
+- Windows: `%APPDATA%\pdf-font-rewriter\fonts`
+- Linux: `~/.local/share/pdf-font-rewriter/fonts`
 
 ### Python CLI
 
@@ -124,7 +134,7 @@ Release artifacts are separated:
 - Obsidian marketplace/plugin assets: `obsidian-plugin/main.js`, `obsidian-plugin/manifest.json`, `obsidian-plugin/styles.css`
 - Helper release assets: `release/helper/helper-manifest.json`, `release/helper/refont-helper-<platform>`
 
-GitHub tag releases are handled by `.github/workflows/release.yml`. A `0.1.5` tag builds:
+GitHub tag releases are handled by `.github/workflows/release.yml`. A `0.1.6` tag builds:
 
 - `refont-helper-macos-arm64`
 - `refont-helper-macos-x64`
@@ -136,3 +146,5 @@ GitHub tag releases are handled by `.github/workflows/release.yml`. A `0.1.5` ta
 ## License
 
 Apache-2.0. See `LICENSE`.
+
+Bundled fonts are distributed under the SIL Open Font License 1.1. Source and license details are in `obsidian-plugin/fonts/README.md` and `obsidian-plugin/fonts/licenses/`.

@@ -27,6 +27,9 @@ const context = await esbuild.context({
     ...builtinModules.map((moduleName) => `node:${moduleName}`),
   ],
   format: "cjs",
+  loader: {
+    ".ttf": "base64",
+  },
   logLevel: "info",
   minify: prod,
   outfile: "main.js",

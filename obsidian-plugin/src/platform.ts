@@ -2,15 +2,23 @@ import os from "os";
 import path from "path";
 
 export function defaultHelperPath(): string {
+  return path.join(defaultDataDir(), "bin", executableName());
+}
+
+export function defaultBuiltinFontsDir(): string {
+  return path.join(defaultDataDir(), "fonts");
+}
+
+function defaultDataDir(): string {
   if (process.platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Application Support", "pdf-font-rewriter", "bin", executableName());
+    return path.join(os.homedir(), "Library", "Application Support", "pdf-font-rewriter");
   }
 
   if (process.platform === "win32") {
-    return path.join(os.homedir(), "AppData", "Roaming", "pdf-font-rewriter", "bin", executableName());
+    return path.join(os.homedir(), "AppData", "Roaming", "pdf-font-rewriter");
   }
 
-  return path.join(os.homedir(), ".local", "share", "pdf-font-rewriter", "bin", executableName());
+  return path.join(os.homedir(), ".local", "share", "pdf-font-rewriter");
 }
 
 export function executableName(): string {

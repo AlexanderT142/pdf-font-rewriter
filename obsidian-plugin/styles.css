@@ -1,3 +1,15 @@
 .pdf-font-rewriter-hidden {
   display: none;
 }
+
+.pdf-font-rewriter-muted {
+  color: var(--text-muted);
+  margin-top: -0.5rem;
+}
+
+.pdf-font-rewriter-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
