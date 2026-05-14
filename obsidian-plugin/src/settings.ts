@@ -20,6 +20,8 @@ export interface PdfFontRewriterSettings {
   targetFontPath: string;
   cjkFallbackPath: string;
   outputSuffix: string;
+  pageRange: string;
+  openAfterRewrite: boolean;
   mode: "conservative" | "normal";
 }
 
@@ -34,6 +36,8 @@ export const DEFAULT_SETTINGS: PdfFontRewriterSettings = {
   targetFontPath: "",
   cjkFallbackPath: "",
   outputSuffix: "_refonted",
+  pageRange: "",
+  openAfterRewrite: true,
   mode: "conservative",
 };
 
@@ -116,6 +120,31 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.outputSuffix)
           .onChange(async (value) => {
             this.plugin.settings.outputSuffix = value.trim() || "_refonted";
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Pages to rewrite")
+      .setDesc('Leave blank for the whole PDF, or enter pages like "1-3,8" for a faster test.')
+      .addText((text) =>
+        text
+          .setPlaceholder("all pages")
+          .setValue(this.plugin.settings.pageRange)
+          .onChange(async (value) => {
+            this.plugin.settings.pageRange = value.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Open rewritten PDF")
+      .setDesc("Open the new PDF automatically when conversion finishes.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.openAfterRewrite)
+          .onChange(async (value) => {
+            this.plugin.settings.openAfterRewrite = value;
             await this.plugin.saveSettings();
           }),
       );

@@ -4,6 +4,8 @@ Change the font inside a PDF from Obsidian without retyping it.
 
 PDF Font Rewriter creates a new PDF where safely replaceable text is redrawn in the font you choose. It is useful for papers, handouts, exported documents, and scanned PDFs that still have a searchable text layer.
 
+It does not live-edit the PDF viewer page you are already looking at. It writes a new PDF next to the original, then opens the new PDF when the rewrite finishes.
+
 It does not try to guess everything. If a page is image-only, rotated, too uncertain, or unsafe to redraw cleanly, the plugin leaves that part unchanged and records what happened in an audit file.
 
 ![Before and after example on a searchable scanned PDF](https://raw.githubusercontent.com/AlexanderT142/pdf-font-rewriter/main/docs/assets/socialsystem-current-before-after.png)
@@ -16,7 +18,8 @@ It does not try to guess everything. If a page is image-only, rotated, too uncer
 2. Open a PDF in Obsidian.
 3. Click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Rewrite PDF font**, or run **PDF Font Rewriter: Rewrite active PDF font** from the command palette.
 4. Choose one of the built-in fonts, or choose **Custom font path** if you want to use your own `.ttf` or `.otf` file.
-5. Click **Rewrite PDF**.
+5. Leave **Pages to rewrite** blank for the whole PDF, or enter pages like `1-3,8` for a quick preview.
+6. Click **Rewrite PDF**.
 
 The plugin writes two files next to the original PDF in your vault:
 
@@ -58,6 +61,7 @@ PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
 - Native PDFs and searchable-scan hybrid PDFs are supported when they contain a clean visible text layer.
 - On hybrid scanned pages, the tool can validate and correct narrow high-confidence text-layer confusions, such as bracket/digit citation errors, against the scanned pixels before font replacement.
 - Conservative skip behavior applies to image-only scanned, RTL, vertical, rotated, widget, missing-glyph, bad-Unicode, unresolved suspicious OCR, or bad-fit content.
+- The rewrite engine processes selected pages and saves a new PDF at the end. It does not replace Obsidian's built-in PDF renderer or stream page changes into the currently open viewer.
 - Browser preview is accepted as a CLI flag but not implemented yet.
 - Bold/italic matching and form-field text rewriting are out of scope for v1.
 
@@ -134,7 +138,7 @@ Release artifacts are separated:
 - Obsidian marketplace/plugin assets: `obsidian-plugin/main.js`, `obsidian-plugin/manifest.json`, `obsidian-plugin/styles.css`
 - Helper release assets: `release/helper/helper-manifest.json`, `release/helper/refont-helper-<platform>`
 
-GitHub tag releases are handled by `.github/workflows/release.yml`. A `0.1.9` tag builds:
+GitHub tag releases are handled by `.github/workflows/release.yml`. A release tag builds:
 
 - `refont-helper-macos-arm64`
 - `refont-helper-macos-x64`

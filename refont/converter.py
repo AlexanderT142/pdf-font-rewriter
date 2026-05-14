@@ -55,7 +55,8 @@ def rewrite_pdf(options: ConversionOptions) -> tuple[list[PageIndex], dict]:
             if options.verbose:
                 print(
                     f"page {page_no + 1}: {classification}, "
-                    f"safe={page_index.safe_line_count}, unsafe={page_index.unsafe_line_count}"
+                    f"safe={page_index.safe_line_count}, unsafe={page_index.unsafe_line_count}",
+                    flush=True,
                 )
 
             if not options.dry_run and page_index.classification in {"native", "hybrid"}:

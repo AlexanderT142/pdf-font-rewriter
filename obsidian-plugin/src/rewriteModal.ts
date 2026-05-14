@@ -102,6 +102,31 @@ export class PdfRewriteModal extends Modal {
           }),
       );
 
+    new Setting(contentEl)
+      .setName("Pages to rewrite")
+      .setDesc('Blank rewrites the whole PDF. Use pages like "1-3,8" for a quick preview.')
+      .addText((text) =>
+        text
+          .setPlaceholder("all pages")
+          .setValue(this.plugin.settings.pageRange)
+          .onChange(async (value) => {
+            this.plugin.settings.pageRange = value.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(contentEl)
+      .setName("Open rewritten PDF")
+      .setDesc("Switch to the new PDF after conversion finishes.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.openAfterRewrite)
+          .onChange(async (value) => {
+            this.plugin.settings.openAfterRewrite = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
     const footer = contentEl.createDiv({ cls: "pdf-font-rewriter-modal-footer" });
     new ButtonComponent(footer)
       .setButtonText("Cancel")
