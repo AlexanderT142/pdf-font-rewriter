@@ -27,7 +27,7 @@ export class PdfRewriteModal extends Modal {
     contentEl.empty();
     contentEl.addClass("pdf-font-rewriter-modal");
 
-    contentEl.createEl("h2", { text: "Rewrite PDF font" });
+    new Setting(contentEl).setName("Rewrite PDF font").setHeading();
     contentEl.createEl("p", {
       text: `File: ${this.file.path}`,
       cls: "pdf-font-rewriter-muted",

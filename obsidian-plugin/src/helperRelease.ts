@@ -1,7 +1,7 @@
-export const HELPER_VERSION = "0.1.6";
+export const HELPER_VERSION = "0.1.7";
 export const HELPER_MANIFEST_NAME = "helper-manifest.json";
 export const DEFAULT_HELPER_RELEASE_BASE_URL =
-  "https://github.com/AlexanderT142/pdf-font-rewriter/releases/download/0.1.6";
+  "https://github.com/AlexanderT142/pdf-font-rewriter/releases/download/0.1.7";
 
 export interface HelperAsset {
   name: string;

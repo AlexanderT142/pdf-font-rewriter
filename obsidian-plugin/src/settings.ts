@@ -49,7 +49,7 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h3", { text: "Rewrite PDFs" });
+    new Setting(containerEl).setName("Rewrite PDFs").setHeading();
 
     new Setting(containerEl)
       .setName("Target font")
@@ -133,7 +133,7 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
           }),
       );
 
-    containerEl.createEl("h3", { text: "Helper" });
+    new Setting(containerEl).setName("Helper").setHeading();
 
     const helperStatus = this.plugin.settings.helperVersion
       ? `${this.plugin.settings.helperVersion} (${this.plugin.settings.helperPlatform})`
