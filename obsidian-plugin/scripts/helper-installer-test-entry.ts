@@ -29,7 +29,10 @@ const settings: PdfFontRewriterSettings = {
   helperSha256: "",
   targetFontPath: "",
   cjkFallbackPath: "",
+  outputMode: "copy",
   outputSuffix: "_refonted",
+  pageRange: "",
+  openAfterRewrite: true,
   mode: "conservative",
 };
 

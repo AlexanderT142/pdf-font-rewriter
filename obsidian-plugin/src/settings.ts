@@ -19,6 +19,7 @@ export interface PdfFontRewriterSettings {
   builtinFontId: string;
   targetFontPath: string;
   cjkFallbackPath: string;
+  outputMode: "copy" | "replace";
   outputSuffix: string;
   pageRange: string;
   openAfterRewrite: boolean;
@@ -35,6 +36,7 @@ export const DEFAULT_SETTINGS: PdfFontRewriterSettings = {
   builtinFontId: DEFAULT_BUILTIN_FONT_ID,
   targetFontPath: "",
   cjkFallbackPath: "",
+  outputMode: "copy",
   outputSuffix: "_refonted",
   pageRange: "",
   openAfterRewrite: true,
@@ -112,17 +114,34 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Output suffix")
-      .setDesc("Suffix added to rewritten PDFs.")
-      .addText((text) =>
-        text
-          .setPlaceholder("_refonted")
-          .setValue(this.plugin.settings.outputSuffix)
+      .setName("Save result")
+      .setDesc("Create a separate PDF by default, or replace the current PDF after a successful rewrite.")
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("copy", "Create a separate PDF")
+          .addOption("replace", "Replace current PDF")
+          .setValue(this.plugin.settings.outputMode)
           .onChange(async (value) => {
-            this.plugin.settings.outputSuffix = value.trim() || "_refonted";
+            this.plugin.settings.outputMode = value as PdfFontRewriterSettings["outputMode"];
             await this.plugin.saveSettings();
+            this.display();
           }),
       );
+
+    if (this.plugin.settings.outputMode === "copy") {
+      new Setting(containerEl)
+        .setName("Output suffix")
+        .setDesc("Suffix added to rewritten PDFs.")
+        .addText((text) =>
+          text
+            .setPlaceholder("_refonted")
+            .setValue(this.plugin.settings.outputSuffix)
+            .onChange(async (value) => {
+              this.plugin.settings.outputSuffix = value.trim() || "_refonted";
+              await this.plugin.saveSettings();
+            }),
+        );
+    }
 
     new Setting(containerEl)
       .setName("Pages to rewrite")
@@ -140,8 +159,8 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Open rewritten PDF")
-      .setDesc("Open the new PDF automatically when conversion finishes.")
+      .setName("Open result when finished")
+      .setDesc("Open the new PDF, or reopen the current PDF when using replace mode.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.openAfterRewrite)

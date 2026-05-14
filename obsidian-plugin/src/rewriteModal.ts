@@ -91,17 +91,36 @@ export class PdfRewriteModal extends Modal {
       );
 
     new Setting(contentEl)
-      .setName("Output suffix")
-      .setDesc("The rewritten PDF is saved next to the original.")
-      .addText((text) =>
-        text
-          .setPlaceholder("_refonted")
-          .setValue(this.plugin.settings.outputSuffix)
+      .setName("Save result")
+      .setDesc(
+        "Create a separate PDF by default, or replace this PDF after the rewrite succeeds.",
+      )
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("copy", "Create a separate PDF")
+          .addOption("replace", "Replace current PDF")
+          .setValue(this.plugin.settings.outputMode)
           .onChange(async (value) => {
-            this.plugin.settings.outputSuffix = value.trim() || "_refonted";
+            this.plugin.settings.outputMode = value as PdfFontRewriterSettings["outputMode"];
             await this.plugin.saveSettings();
+            this.display();
           }),
       );
+
+    if (this.plugin.settings.outputMode === "copy") {
+      new Setting(contentEl)
+        .setName("Output suffix")
+        .setDesc("The rewritten PDF is saved next to the original.")
+        .addText((text) =>
+          text
+            .setPlaceholder("_refonted")
+            .setValue(this.plugin.settings.outputSuffix)
+            .onChange(async (value) => {
+              this.plugin.settings.outputSuffix = value.trim() || "_refonted";
+              await this.plugin.saveSettings();
+            }),
+        );
+    }
 
     new Setting(contentEl)
       .setName("Pages to rewrite")
@@ -132,8 +151,8 @@ export class PdfRewriteModal extends Modal {
       );
 
     new Setting(contentEl)
-      .setName("Open rewritten PDF")
-      .setDesc("Switch to the new PDF after conversion finishes.")
+      .setName("Open result when finished")
+      .setDesc("Switch to the new PDF, or reopen this PDF when using replace mode.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.openAfterRewrite)
@@ -149,7 +168,9 @@ export class PdfRewriteModal extends Modal {
       .onClick(() => this.close());
 
     new ButtonComponent(footer)
-      .setButtonText("Rewrite PDF")
+      .setButtonText(
+        this.plugin.settings.outputMode === "replace" ? "Rewrite current PDF" : "Rewrite PDF",
+      )
       .setCta()
       .onClick(() => {
         if (

@@ -31,8 +31,8 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
   }
 
   const inputPath = adapter.getFullPath(file.path);
-  const outputVaultPath = await nextOutputPath(plugin, file);
-  const outputPath = adapter.getFullPath(outputVaultPath);
+  await fs.mkdir(defaultReportsDir(), { recursive: true });
+  const outputTarget = await rewriteOutputTarget(plugin, file, adapter);
   const reportPath = nextReportPath(file);
   let pageRange = "";
   try {
@@ -47,7 +47,7 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
     "--font",
     targetFontPath,
     "--output",
-    outputPath,
+    outputTarget.path,
     "--report",
     reportPath,
     "--mode",
@@ -81,20 +81,45 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
 
     const reportSummary = await readRewriteReportSummary(reportPath);
     if (reportSummary?.changedPages === 0) {
-      await removeIfExists(outputPath);
+      await removeIfExists(outputTarget.path);
       await removeIfExists(reportPath);
       new Notice(reportSummary.message);
       return;
     }
 
+    if (outputTarget.mode === "replace") {
+      if (!reportSummary) {
+        await removeIfExists(outputTarget.path);
+        new Notice(
+          "PDF Font Rewriter: original PDF was left unchanged because the conversion report could not be verified.",
+        );
+        return;
+      }
+
+      await replaceVaultFile(plugin, file, outputTarget.path);
+      await removeIfExists(outputTarget.path);
+      new Notice(
+        `PDF Font Rewriter: updated ${file.path} (${pluralize(reportSummary.changedPages, "page")} changed).`,
+      );
+      if (settings.openAfterRewrite) {
+        await reopenVaultFile(plugin, file);
+      }
+      return;
+    }
+
     const resultNotice = reportSummary
-      ? `PDF Font Rewriter: created ${outputVaultPath} (${pluralize(reportSummary.changedPages, "page")} changed).`
-      : `PDF Font Rewriter: created ${outputVaultPath}`;
+      ? `PDF Font Rewriter: created ${outputTarget.vaultPath} (${pluralize(reportSummary.changedPages, "page")} changed).`
+      : `PDF Font Rewriter: created ${outputTarget.vaultPath}`;
     new Notice(resultNotice);
     if (settings.openAfterRewrite) {
-      await openVaultFile(plugin, outputVaultPath, file.path);
+      await openVaultFile(plugin, outputTarget.vaultPath, file.path);
     }
   } catch (error) {
+    if (outputTarget.mode === "replace") {
+      await removeIfExists(outputTarget.path).catch((cleanupError: unknown) => {
+        console.warn("PDF Font Rewriter: could not remove temporary output.", cleanupError);
+      });
+    }
     console.error(error);
     new Notice("PDF Font Rewriter failed. Check the developer console for details.");
     throw error;
@@ -191,6 +216,24 @@ async function openVaultFile(
   new Notice(`PDF Font Rewriter: open ${vaultPath} from the file explorer.`);
 }
 
+async function reopenVaultFile(plugin: PdfFontRewriterPlugin, file: TFile): Promise<void> {
+  const leaf = plugin.app.workspace.getMostRecentLeaf() ?? plugin.app.workspace.getLeaf(false);
+  await leaf.openFile(file);
+}
+
+async function replaceVaultFile(
+  plugin: PdfFontRewriterPlugin,
+  file: TFile,
+  replacementPath: string,
+): Promise<void> {
+  const replacement = await fs.readFile(replacementPath);
+  const data = replacement.buffer.slice(
+    replacement.byteOffset,
+    replacement.byteOffset + replacement.byteLength,
+  ) as ArrayBuffer;
+  await plugin.app.vault.modifyBinary(file, data);
+}
+
 interface RewriteReport {
   pages_fully_converted?: unknown;
   pages_partially_converted?: unknown;
@@ -281,6 +324,30 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+type RewriteOutputTarget =
+  | { mode: "copy"; path: string; vaultPath: string }
+  | { mode: "replace"; path: string };
+
+async function rewriteOutputTarget(
+  plugin: PdfFontRewriterPlugin,
+  file: TFile,
+  adapter: FileSystemAdapter,
+): Promise<RewriteOutputTarget> {
+  if (plugin.settings.outputMode === "replace") {
+    return {
+      mode: "replace",
+      path: tempOutputPath(file),
+    };
+  }
+
+  const vaultPath = await nextOutputPath(plugin, file);
+  return {
+    mode: "copy",
+    path: adapter.getFullPath(vaultPath),
+    vaultPath,
+  };
+}
+
 async function nextOutputPath(plugin: PdfFontRewriterPlugin, file: TFile): Promise<string> {
   const folder = file.parent?.path ?? "";
   const suffix = plugin.settings.outputSuffix || "_refonted";
@@ -299,8 +366,16 @@ async function nextOutputPath(plugin: PdfFontRewriterPlugin, file: TFile): Promi
 }
 
 function nextReportPath(file: TFile): string {
-  const safeName = file.basename.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "pdf";
+  const safeName = safeFileBase(file);
   return path.join(defaultReportsDir(), `${Date.now()}-${safeName}-audit.json`);
+}
+
+function tempOutputPath(file: TFile): string {
+  return path.join(defaultReportsDir(), `${Date.now()}-${safeFileBase(file)}-output.pdf`);
+}
+
+function safeFileBase(file: TFile): string {
+  return file.basename.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "pdf";
 }
 
 function normalizePageRange(value: string): string {

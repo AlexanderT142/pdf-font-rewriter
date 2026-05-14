@@ -83,6 +83,10 @@ export default class PdfFontRewriterPlugin extends Plugin {
       this.settings.builtinFontId = DEFAULT_SETTINGS.builtinFontId;
       migrated = true;
     }
+    if (this.settings.outputMode !== "copy" && this.settings.outputMode !== "replace") {
+      this.settings.outputMode = DEFAULT_SETTINGS.outputMode;
+      migrated = true;
+    }
     if (shouldMigrateHelperReleaseUrl(savedSettings.helperReleaseBaseUrl)) {
       this.settings.helperReleaseBaseUrl = DEFAULT_HELPER_RELEASE_BASE_URL;
       migrated = true;

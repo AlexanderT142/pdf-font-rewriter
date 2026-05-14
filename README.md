@@ -2,9 +2,11 @@
 
 Change the font inside a PDF from Obsidian without retyping it.
 
-PDF Font Rewriter creates a new PDF where safely replaceable text is redrawn in the font you choose. It is useful for papers, handouts, exported documents, and scanned PDFs that still have a searchable text layer.
+PDF Font Rewriter redraws safely replaceable PDF text in the font you choose. It is useful for papers, handouts, exported documents, and scanned PDFs that still have a searchable text layer.
 
-It does not live-edit the PDF viewer page you are already looking at. It writes a new PDF next to the original, then opens the new PDF when the rewrite finishes.
+By default it writes a new PDF next to the original. You can also choose **Replace current PDF** if you want the same file to be updated after a successful rewrite.
+
+It does not live-edit the PDF viewer page like an ebook reader. The rewrite happens as a file conversion, then Obsidian opens or reopens the result when the rewrite finishes.
 
 It does not try to guess everything. If a page is image-only, rotated, too uncertain, or unsafe to redraw cleanly, the plugin leaves that part unchanged.
 
@@ -18,10 +20,11 @@ It does not try to guess everything. If a page is image-only, rotated, too uncer
 2. Open a PDF in Obsidian.
 3. Click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Rewrite PDF font**, or run **PDF Font Rewriter: Rewrite active PDF font** from the command palette.
 4. Choose one of the built-in fonts, or choose **Custom font path** if you want to use your own `.ttf` or `.otf` file.
-5. Leave **Pages to rewrite** blank for the whole PDF, or enter PDF sheet numbers like `1-3,8` for a quick preview. These are the sheet numbers Obsidian shows as `330 / 683`, not always the printed page labels inside the book.
-6. Click **Rewrite PDF**.
+5. Choose whether to create a separate PDF or replace the current PDF.
+6. Leave **Pages to rewrite** blank for the whole PDF, or enter PDF sheet numbers like `1-3,8` for a quick preview. These are the sheet numbers Obsidian shows as `330 / 683`, not always the printed page labels inside the book.
+7. Click **Rewrite PDF**.
 
-When text is changed, the plugin writes a rewritten PDF next to the original PDF in your vault. If the selected pages cannot be changed safely, it does not keep an unchanged output PDF.
+When text is changed, the plugin either writes a rewritten PDF next to the original PDF or replaces the current PDF, depending on the save option you chose. If the selected pages cannot be changed safely, it does not keep an unchanged output PDF.
 
 Obsidian users do not need Python or Python dependencies. The plugin installs its packaged desktop helper automatically.
 
@@ -43,7 +46,7 @@ Built-in fonts include Libertinus Serif, Source Serif 4, Libre Baskerville, PT S
 
 ## Privacy And Files
 
-PDF Font Rewriter runs locally on your computer. It reads the selected PDF and selected font, then writes the rewritten PDF into your vault. Technical audit reports are stored in the plugin's local app-data folder, not next to your PDF.
+PDF Font Rewriter runs locally on your computer. It reads the selected PDF and selected font, then writes the rewritten PDF into your vault or replaces the selected PDF if you choose that mode. Technical audit reports are stored in the plugin's local app-data folder, not next to your PDF.
 
 The plugin does not upload PDFs, fonts, or audit reports to any remote service.
 
@@ -58,7 +61,7 @@ PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
 - Native PDFs and searchable-scan hybrid PDFs are supported when they contain a clean visible text layer.
 - On hybrid scanned pages, the tool can validate and correct narrow high-confidence text-layer confusions, such as bracket/digit citation errors, against the scanned pixels before font replacement.
 - Conservative skip behavior applies to image-only scanned, RTL, vertical, rotated, widget, missing-glyph, bad-Unicode, unresolved suspicious OCR, or bad-fit content.
-- The rewrite engine processes selected pages and saves a new PDF at the end. It does not replace Obsidian's built-in PDF renderer or stream page changes into the currently open viewer.
+- The rewrite engine processes selected pages and saves the PDF at the end. Replace mode writes to a temporary file first and overwrites the current PDF only after a successful conversion. It does not replace Obsidian's built-in PDF renderer or stream page changes into the currently open viewer.
 - Browser preview is accepted as a CLI flag but not implemented yet.
 - Bold/italic matching and form-field text rewriting are out of scope for v1.
 
