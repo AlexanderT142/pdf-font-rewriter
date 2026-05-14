@@ -1,6 +1,7 @@
 import { Notice, Plugin, TAbstractFile, TFile } from "obsidian";
 
 import { isBuiltinFontId } from "./builtinFonts";
+import { DEFAULT_HELPER_RELEASE_BASE_URL } from "./helperRelease";
 import { installOrUpdateHelper } from "./helperInstaller";
 import { PdfRewriteModal } from "./rewriteModal";
 import {
@@ -72,11 +73,23 @@ export default class PdfFontRewriterPlugin extends Plugin {
     const loaded = (await this.loadData()) as unknown;
     const savedSettings = isSettingsRecord(loaded) ? loaded : {};
     this.settings = { ...DEFAULT_SETTINGS, ...savedSettings };
+    let migrated = false;
+
     if (!Object.prototype.hasOwnProperty.call(savedSettings, "targetFontSource")) {
       this.settings.targetFontSource = this.settings.targetFontPath ? "custom" : "builtin";
+      migrated = true;
     }
     if (!this.settings.builtinFontId || !isBuiltinFontId(this.settings.builtinFontId)) {
       this.settings.builtinFontId = DEFAULT_SETTINGS.builtinFontId;
+      migrated = true;
+    }
+    if (shouldMigrateHelperReleaseUrl(savedSettings.helperReleaseBaseUrl)) {
+      this.settings.helperReleaseBaseUrl = DEFAULT_HELPER_RELEASE_BASE_URL;
+      migrated = true;
+    }
+
+    if (migrated) {
+      await this.saveSettings();
     }
   }
 
@@ -105,4 +118,14 @@ function isSettingsRecord(value: unknown): value is Partial<PdfFontRewriterSetti
 
 function isPdfFile(file: TAbstractFile | null): file is TFile {
   return file instanceof TFile && file.extension.toLowerCase() === "pdf";
+}
+
+function shouldMigrateHelperReleaseUrl(value: unknown): boolean {
+  if (typeof value !== "string" || !value.trim()) {
+    return true;
+  }
+
+  return /^https:\/\/github\.com\/AlexanderT142\/pdf-font-rewriter\/releases\/download\/v?\d+\.\d+\.\d+$/.test(
+    value.trim(),
+  );
 }

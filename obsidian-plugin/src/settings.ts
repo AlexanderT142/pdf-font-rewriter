@@ -126,7 +126,9 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Pages to rewrite")
-      .setDesc('Leave blank for the whole PDF, or enter pages like "1-3,8" for a faster test.')
+      .setDesc(
+        'Leave blank for the whole PDF, or enter PDF sheet numbers like "1-3,8" for a faster test. These are not always the printed page labels inside the book.',
+      )
       .addText((text) =>
         text
           .setPlaceholder("all pages")

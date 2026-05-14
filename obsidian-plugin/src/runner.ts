@@ -7,6 +7,7 @@ import { FileSystemAdapter, Notice, TFile, normalizePath } from "obsidian";
 import type PdfFontRewriterPlugin from "./main";
 import { resolveTargetFontPath } from "./builtinFonts";
 import { ensureHelperInstalled } from "./helperInstaller";
+import { defaultReportsDir } from "./platform";
 
 const HELPER_TIMEOUT_MS = 1000 * 60 * 10;
 
@@ -31,9 +32,8 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
 
   const inputPath = adapter.getFullPath(file.path);
   const outputVaultPath = await nextOutputPath(plugin, file);
-  const reportVaultPath = outputVaultPath.replace(/\.pdf$/i, "_audit.json");
   const outputPath = adapter.getFullPath(outputVaultPath);
-  const reportPath = adapter.getFullPath(reportVaultPath);
+  const reportPath = nextReportPath(file);
   let pageRange = "";
   try {
     pageRange = normalizePageRange(settings.pageRange);
@@ -79,7 +79,18 @@ export async function rewriteActivePdf(plugin: PdfFontRewriterPlugin, file: TFil
       },
     });
 
-    new Notice(`PDF Font Rewriter: created ${outputVaultPath}`);
+    const reportSummary = await readRewriteReportSummary(reportPath);
+    if (reportSummary?.changedPages === 0) {
+      await removeIfExists(outputPath);
+      await removeIfExists(reportPath);
+      new Notice(reportSummary.message);
+      return;
+    }
+
+    const resultNotice = reportSummary
+      ? `PDF Font Rewriter: created ${outputVaultPath} (${pluralize(reportSummary.changedPages, "page")} changed).`
+      : `PDF Font Rewriter: created ${outputVaultPath}`;
+    new Notice(resultNotice);
     if (settings.openAfterRewrite) {
       await openVaultFile(plugin, outputVaultPath, file.path);
     }
@@ -180,6 +191,76 @@ async function openVaultFile(
   new Notice(`PDF Font Rewriter: open ${vaultPath} from the file explorer.`);
 }
 
+interface RewriteReport {
+  pages_fully_converted?: unknown;
+  pages_partially_converted?: unknown;
+  pages_skipped?: unknown;
+  skipped_reasons?: unknown;
+}
+
+interface RewriteReportSummary {
+  changedPages: number;
+  message: string;
+}
+
+async function readRewriteReportSummary(reportPath: string): Promise<RewriteReportSummary | null> {
+  try {
+    const raw = await fs.readFile(reportPath, "utf8");
+    const report = JSON.parse(raw) as RewriteReport;
+    const fully = numberField(report.pages_fully_converted);
+    const partial = numberField(report.pages_partially_converted);
+    const skipped = numberField(report.pages_skipped);
+    const changedPages = fully + partial;
+
+    if (changedPages > 0) {
+      return {
+        changedPages,
+        message: "",
+      };
+    }
+
+    if (skipped > 0) {
+      const reason = topSkippedReason(report.skipped_reasons);
+      const suffix = reason
+        ? ` Most common reason: ${reason}.`
+        : " The selected page could not be rewritten safely.";
+      return {
+        changedPages,
+        message: `PDF Font Rewriter: no text changed, so no output PDF was kept.${suffix}`,
+      };
+    }
+
+    return {
+      changedPages,
+      message:
+        "PDF Font Rewriter: no selected pages were inside the PDF. Use PDF sheet numbers, not printed book page labels.",
+    };
+  } catch (error) {
+    console.warn("PDF Font Rewriter: could not read conversion report.", error);
+    return null;
+  }
+}
+
+function numberField(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function topSkippedReason(value: unknown): string | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter((entry): entry is [string, number] => typeof entry[1] === "number")
+    .sort((a, b) => b[1] - a[1]);
+
+  return entries[0]?.[0] ?? null;
+}
+
+function pluralize(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 async function waitForVaultFile(
   plugin: PdfFontRewriterPlugin,
   vaultPath: string,
@@ -215,6 +296,11 @@ async function nextOutputPath(plugin: PdfFontRewriterPlugin, file: TFile): Promi
   }
 
   throw new Error(`Could not find a free output name for ${file.path}`);
+}
+
+function nextReportPath(file: TFile): string {
+  const safeName = file.basename.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "pdf";
+  return path.join(defaultReportsDir(), `${Date.now()}-${safeName}-audit.json`);
 }
 
 function normalizePageRange(value: string): string {
@@ -256,5 +342,15 @@ async function assertReadableFile(filePath: string, label: string): Promise<void
     await fs.access(filePath);
   } catch {
     throw new Error(`Cannot read ${label}: ${filePath}`);
+  }
+}
+
+async function removeIfExists(filePath: string): Promise<void> {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
   }
 }

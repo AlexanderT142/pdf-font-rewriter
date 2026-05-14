@@ -10,7 +10,7 @@ The plugin calls the packaged `refont-helper` binary from the local app-data dir
 
 On first conversion, the plugin downloads `helper-manifest.json`, selects the matching platform helper, verifies its SHA-256 hash, and installs it into that app-data path.
 
-The plugin reads the selected PDF and configured font files, then writes a rewritten PDF and audit JSON file into the vault. It opens the rewritten PDF when conversion finishes; it does not live-edit Obsidian's built-in PDF viewer page. It does not upload PDFs, fonts, or audit output to any remote service. Network use is limited to downloading or updating the helper from GitHub Releases.
+The plugin reads the selected PDF and configured font files, then writes a rewritten PDF into the vault when text is changed. Technical audit reports are stored in the plugin's local app-data folder. It opens the rewritten PDF when conversion finishes; it does not live-edit Obsidian's built-in PDF viewer page. It does not upload PDFs, fonts, or audit reports to any remote service. Network use is limited to downloading or updating the helper from GitHub Releases.
 
 ## Build
 

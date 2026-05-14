@@ -6,7 +6,7 @@ PDF Font Rewriter creates a new PDF where safely replaceable text is redrawn in 
 
 It does not live-edit the PDF viewer page you are already looking at. It writes a new PDF next to the original, then opens the new PDF when the rewrite finishes.
 
-It does not try to guess everything. If a page is image-only, rotated, too uncertain, or unsafe to redraw cleanly, the plugin leaves that part unchanged and records what happened in an audit file.
+It does not try to guess everything. If a page is image-only, rotated, too uncertain, or unsafe to redraw cleanly, the plugin leaves that part unchanged.
 
 ![Before and after example on a searchable scanned PDF](https://raw.githubusercontent.com/AlexanderT142/pdf-font-rewriter/main/docs/assets/socialsystem-current-before-after.png)
 
@@ -18,13 +18,10 @@ It does not try to guess everything. If a page is image-only, rotated, too uncer
 2. Open a PDF in Obsidian.
 3. Click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Rewrite PDF font**, or run **PDF Font Rewriter: Rewrite active PDF font** from the command palette.
 4. Choose one of the built-in fonts, or choose **Custom font path** if you want to use your own `.ttf` or `.otf` file.
-5. Leave **Pages to rewrite** blank for the whole PDF, or enter pages like `1-3,8` for a quick preview.
+5. Leave **Pages to rewrite** blank for the whole PDF, or enter PDF sheet numbers like `1-3,8` for a quick preview. These are the sheet numbers Obsidian shows as `330 / 683`, not always the printed page labels inside the book.
 6. Click **Rewrite PDF**.
 
-The plugin writes two files next to the original PDF in your vault:
-
-- a rewritten PDF
-- an audit JSON file explaining what changed and what was skipped
+When text is changed, the plugin writes a rewritten PDF next to the original PDF in your vault. If the selected pages cannot be changed safely, it does not keep an unchanged output PDF.
 
 Obsidian users do not need Python or Python dependencies. The plugin installs its packaged desktop helper automatically.
 
@@ -46,9 +43,9 @@ Built-in fonts include Libertinus Serif, Source Serif 4, Libre Baskerville, PT S
 
 ## Privacy And Files
 
-PDF Font Rewriter runs locally on your computer. It reads the selected PDF and selected font, then writes the rewritten PDF and audit file into your vault.
+PDF Font Rewriter runs locally on your computer. It reads the selected PDF and selected font, then writes the rewritten PDF into your vault. Technical audit reports are stored in the plugin's local app-data folder, not next to your PDF.
 
-The plugin does not upload PDFs, fonts, or audit output to any remote service.
+The plugin does not upload PDFs, fonts, or audit reports to any remote service.
 
 Network use is limited to downloading or updating the desktop helper from this repository's GitHub Releases. The built-in fonts are bundled with the plugin and do not need a separate download. The helper download is selected for your OS/CPU platform and verified with SHA-256 before installation.
 

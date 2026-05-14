@@ -9,6 +9,10 @@ export function defaultBuiltinFontsDir(): string {
   return path.join(defaultDataDir(), "fonts");
 }
 
+export function defaultReportsDir(): string {
+  return path.join(defaultDataDir(), "reports");
+}
+
 function defaultDataDir(): string {
   if (process.platform === "darwin") {
     return path.join(os.homedir(), "Library", "Application Support", "pdf-font-rewriter");

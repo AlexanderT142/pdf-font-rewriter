@@ -24,6 +24,7 @@ export class PdfRewriteModal extends Modal {
 
   private display(): void {
     const { contentEl } = this;
+    const currentSheetNumber = detectCurrentPdfSheetNumber(this.plugin, this.file);
     contentEl.empty();
     contentEl.addClass("pdf-font-rewriter-modal");
 
@@ -104,7 +105,7 @@ export class PdfRewriteModal extends Modal {
 
     new Setting(contentEl)
       .setName("Pages to rewrite")
-      .setDesc('Blank rewrites the whole PDF. Use pages like "1-3,8" for a quick preview.')
+      .setDesc(pageRangeDescription(currentSheetNumber))
       .addText((text) =>
         text
           .setPlaceholder("all pages")
@@ -112,6 +113,21 @@ export class PdfRewriteModal extends Modal {
           .onChange(async (value) => {
             this.plugin.settings.pageRange = value.trim();
             await this.plugin.saveSettings();
+          }),
+      )
+      .addButton((button) =>
+        button
+          .setButtonText(
+            currentSheetNumber ? `Use visible page ${currentSheetNumber}` : "Use visible page",
+          )
+          .setDisabled(currentSheetNumber === null)
+          .onClick(async () => {
+            if (currentSheetNumber === null) {
+              return;
+            }
+            this.plugin.settings.pageRange = String(currentSheetNumber);
+            await this.plugin.saveSettings();
+            this.display();
           }),
       );
 
@@ -150,4 +166,34 @@ export class PdfRewriteModal extends Modal {
         });
       });
   }
+}
+
+function pageRangeDescription(currentSheetNumber: number | null): string {
+  const base =
+    'Blank rewrites the whole PDF. Use PDF sheet numbers like "1-3,8", not printed book page labels.';
+  if (currentSheetNumber === null) {
+    return base;
+  }
+
+  return `${base} The visible sheet is ${currentSheetNumber}.`;
+}
+
+function detectCurrentPdfSheetNumber(
+  plugin: PdfFontRewriterPlugin,
+  file: TFile,
+): number | null {
+  const activeFile = plugin.app.workspace.getActiveFile();
+  const activeLeaf = plugin.app.workspace.activeLeaf;
+  if (!activeFile || activeFile.path !== file.path || !activeLeaf) {
+    return null;
+  }
+
+  const text = activeLeaf.view.containerEl?.textContent ?? "";
+  const match = /\((\d+)\s*\/\s*\d+\)/.exec(text);
+  if (!match) {
+    return null;
+  }
+
+  const page = Number(match[1]);
+  return Number.isInteger(page) && page > 0 ? page : null;
 }
