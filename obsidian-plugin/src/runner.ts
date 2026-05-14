@@ -230,7 +230,7 @@ async function replaceVaultFile(
   const data = replacement.buffer.slice(
     replacement.byteOffset,
     replacement.byteOffset + replacement.byteLength,
-  ) as ArrayBuffer;
+  );
   await plugin.app.vault.modifyBinary(file, data);
 }
 
