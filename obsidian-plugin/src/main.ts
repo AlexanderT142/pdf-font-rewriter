@@ -1,6 +1,6 @@
 import { Notice, Plugin, TAbstractFile, TFile } from "obsidian";
 
-import { isBuiltinFontId } from "./builtinFonts";
+import { installOrUpdateBuiltinFonts, isBuiltinFontId } from "./builtinFonts";
 import { DEFAULT_HELPER_RELEASE_BASE_URL } from "./helperRelease";
 import { installOrUpdateHelper } from "./helperInstaller";
 import { LIVE_REFONT_VIEW_TYPE, LiveRefontPdfView, openLiveRefontView } from "./liveRefontView";
@@ -24,13 +24,13 @@ export default class PdfFontRewriterPlugin extends Plugin {
       this.registerExtensions(["pdf"], LIVE_REFONT_VIEW_TYPE);
     }
 
-    this.addRibbonIcon("type", "Rewrite PDF font", () => {
-      this.openRewriteModalForActiveFile();
+    this.addRibbonIcon("type", "Open PDF in Live Refont View", () => {
+      this.openLiveRefontViewForActiveFile();
     }).addClass("pdf-font-rewriter-ribbon-icon");
 
     this.addCommand({
       id: "rewrite-active-pdf-font",
-      name: "Rewrite active PDF font",
+      name: "Export active PDF with refonted text",
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         const canRun = file instanceof TFile && file.extension.toLowerCase() === "pdf";
@@ -107,13 +107,6 @@ export default class PdfFontRewriterPlugin extends Plugin {
 
         menu.addItem((item) => {
           item
-            .setTitle("Rewrite PDF font")
-            .setIcon("type")
-            .onClick(() => this.openRewriteModal(file));
-        });
-
-        menu.addItem((item) => {
-          item
             .setTitle("Open in Live Refont View")
             .setIcon("scan-text")
             .onClick(() => {
@@ -122,27 +115,23 @@ export default class PdfFontRewriterPlugin extends Plugin {
               });
             });
         });
-
-        menu.addItem((item) => {
-          item
-            .setTitle("Restore original PDF")
-            .setIcon("rotate-ccw")
-            .onClick(() => {
-              restoreActivePdfOriginal(this, file).catch((error: unknown) => {
-                console.error(error);
-              });
-            });
-        });
       }),
     );
 
     this.addSettingTab(new PdfFontRewriterSettingTab(this.app, this));
+
+    installOrUpdateBuiltinFonts(this).catch((error: unknown) => {
+      console.warn("PDF Font Rewriter: built-in font install failed.", error);
+    });
   }
 
   async loadSettings(): Promise<void> {
     const loaded = (await this.loadData()) as unknown;
     const savedSettings = isSettingsRecord(loaded) ? loaded : {};
     this.settings = { ...DEFAULT_SETTINGS, ...savedSettings };
+    this.settings.builtinFontSha256 = isStringRecord(savedSettings.builtinFontSha256)
+      ? { ...savedSettings.builtinFontSha256 }
+      : {};
     let migrated = false;
 
     if (!Object.prototype.hasOwnProperty.call(savedSettings, "targetFontSource")) {
@@ -151,6 +140,13 @@ export default class PdfFontRewriterPlugin extends Plugin {
     }
     if (!this.settings.builtinFontId || !isBuiltinFontId(this.settings.builtinFontId)) {
       this.settings.builtinFontId = DEFAULT_SETTINGS.builtinFontId;
+      migrated = true;
+    }
+    if (typeof savedSettings.builtinFontsVersion !== "string") {
+      this.settings.builtinFontsVersion = DEFAULT_SETTINGS.builtinFontsVersion;
+      migrated = true;
+    }
+    if (!isStringRecord(savedSettings.builtinFontSha256)) {
       migrated = true;
     }
     if (this.settings.outputMode !== "copy" && this.settings.outputMode !== "replace") {
@@ -216,10 +212,31 @@ export default class PdfFontRewriterPlugin extends Plugin {
 
     this.openRewriteModal(file);
   }
+
+  openLiveRefontViewForActiveFile(): void {
+    const file = this.app.workspace.getActiveFile();
+    if (!isPdfFile(file)) {
+      new Notice("PDF Font Rewriter: open a PDF file first.");
+      return;
+    }
+
+    openLiveRefontView(this, file).catch((error: unknown) => {
+      console.error(error);
+    });
+  }
 }
 
 function isSettingsRecord(value: unknown): value is Partial<PdfFontRewriterSettings> {
   return typeof value === "object" && value !== null;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  );
 }
 
 function isPdfFile(file: TAbstractFile | null): file is TFile {

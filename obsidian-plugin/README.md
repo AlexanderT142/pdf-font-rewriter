@@ -8,9 +8,9 @@ The plugin calls the packaged `refont-helper` binary from the local app-data dir
 - Windows: `%APPDATA%\pdf-font-rewriter\bin\refont-helper.exe`
 - Linux: `~/.local/share/pdf-font-rewriter/bin/refont-helper`
 
-On first conversion, the plugin downloads `helper-manifest.json`, selects the matching platform helper, verifies its SHA-256 hash, and installs it into that app-data path. For local development, leave the helper release URL blank and point the helper binary path at a manually installed `refont-helper`.
+On activation, the plugin downloads `font-manifest.json`, verifies the built-in font SHA-256 hashes, and installs the font files into local app-data. On first conversion, it downloads `helper-manifest.json`, selects the matching platform helper, verifies its SHA-256 hash, and installs it into that app-data path. For local development, leave the helper release URL blank and point the helper binary path at a manually installed `refont-helper`.
 
-The classic rewrite command reads the selected PDF and configured font files, then writes a rewritten PDF into the vault when text is changed. By default it creates a separate PDF; users can opt into replacing the current PDF after a successful rewrite. Replace mode saves the first restore copy for that PDF outside the vault before overwriting the same file path. Technical audit reports are stored in the plugin's local app-data folder. It opens or reopens the exported result when conversion finishes. It does not upload PDFs, fonts, backups, or audit reports to any remote service. Network use is limited to downloading or updating the helper from GitHub Releases.
+The classic rewrite command reads the selected PDF and configured font files, then writes a rewritten PDF into the vault when text is changed. By default it creates a separate PDF; users can opt into replacing the current PDF after a successful rewrite. Replace mode saves the first restore copy for that PDF outside the vault before overwriting the same file path. Technical audit reports are stored in the plugin's local app-data folder. It opens or reopens the exported result when conversion finishes. It does not upload PDFs, fonts, backups, or audit reports to any remote service. Network use is limited to downloading or updating verified font assets and the helper from GitHub Releases.
 
 ## Experimental Live Refont View
 

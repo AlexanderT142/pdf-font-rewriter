@@ -146,7 +146,9 @@ jobs:
           test -f release/obsidian-plugin/manifest.json
           test -f release/obsidian-plugin/styles.css
           test -f release/helper/helper-manifest.json
+          test -f release/helper/font-manifest.json
           test "$(find release/helper -type f -name 'refont-helper-*' | wc -l | tr -d ' ')" -ge 4
+          test "$(find release/helper -type f -name 'builtin-font-*' | wc -l | tr -d ' ')" -ge 10
 
       - name: Prepare Obsidian plugin attestation checksums
         shell: bash
@@ -174,7 +176,9 @@ jobs:
             release/obsidian-plugin/manifest.json
             release/obsidian-plugin/styles.css
             release/helper/helper-manifest.json
+            release/helper/font-manifest.json
             release/helper/refont-helper-*
+            release/helper/builtin-font-*
           )
 
           if gh release view "$TAG" >/dev/null 2>&1; then

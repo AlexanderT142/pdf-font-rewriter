@@ -28,7 +28,7 @@ When text is changed, the plugin either writes a rewritten PDF next to the origi
 
 Obsidian users do not need Python or Python dependencies. The plugin installs its packaged desktop helper automatically.
 
-Built-in fonts include Charis SIL, XCharter, TeX Gyre Pagella, EB Garamond, Inter, Noto Sans, Open Sans, Lato, Atkinson Hyperlegible, Andika, and OpenDyslexic.
+Built-in fonts include Charis SIL, XCharter, TeX Gyre Pagella, EB Garamond, Inter, Noto Sans, Open Sans, Lato, Atkinson Hyperlegible, Andika, and OpenDyslexic. The small Obsidian plugin bundle contains only font metadata; on desktop activation the plugin downloads the font assets from this repository's GitHub Releases, verifies SHA-256 checksums, and stores them in local app-data.
 
 ## What It Works Best On
 
@@ -52,7 +52,7 @@ When **Replace current PDF** is used, the plugin keeps the first restore copy fo
 
 The plugin does not upload PDFs, fonts, or audit reports to any remote service.
 
-Network use is limited to downloading or updating the desktop helper from this repository's GitHub Releases. The built-in fonts are bundled with the plugin and do not need a separate download. The helper download is selected for your OS/CPU platform and verified with SHA-256 before installation.
+Network use is limited to downloading or updating built-in font assets and the desktop helper from this repository's GitHub Releases. Downloads are selected from release manifests and verified with SHA-256 before installation.
 
 PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
 
@@ -77,7 +77,7 @@ PDF Font Rewriter is desktop-only. It does not support Obsidian mobile.
 
 ### Built-In Font Location
 
-The plugin writes bundled fonts on demand into:
+The plugin writes verified built-in fonts into:
 
 - macOS: `~/Library/Application Support/pdf-font-rewriter/fonts`
 - Windows: `%APPDATA%\pdf-font-rewriter\fonts`
@@ -123,7 +123,7 @@ uv run python packaging/build_helper.py --clean
 uv run python packaging/install_local_helper.py
 ```
 
-Prepare helper release assets:
+Prepare helper and font release assets:
 
 ```bash
 uv run python packaging/prepare_helper_release.py --clean
@@ -140,7 +140,7 @@ npm run build
 Release artifacts are separated:
 
 - Obsidian marketplace/plugin assets: `obsidian-plugin/main.js`, `obsidian-plugin/manifest.json`, `obsidian-plugin/styles.css`
-- Helper release assets: `release/helper/helper-manifest.json`, `release/helper/refont-helper-<platform>`
+- Helper and font release assets: `release/helper/helper-manifest.json`, `release/helper/refont-helper-<platform>`, `release/helper/font-manifest.json`, `release/helper/builtin-font-<name>`
 
 GitHub tag releases are handled by `.github/workflows/release.yml`. A release tag builds:
 
@@ -149,6 +149,8 @@ GitHub tag releases are handled by `.github/workflows/release.yml`. A release ta
 - `refont-helper-windows-x64.exe`
 - `refont-helper-linux-x64`
 - `helper-manifest.json`
+- `font-manifest.json`
+- `builtin-font-<name>`
 - Obsidian `main.js`, `manifest.json`, and `styles.css`
 
 ## License

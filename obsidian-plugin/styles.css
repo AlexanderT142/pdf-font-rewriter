@@ -72,7 +72,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 1rem 0 2rem;
+  padding: 0.5rem 0;
   background: var(--background-secondary);
 }
 
@@ -80,14 +80,11 @@
   width: min-content;
   min-width: 12rem;
   min-height: 54rem;
-  margin: 0 auto 1rem;
+  margin: 0 auto 0.5rem;
 }
 
 .pdf-font-rewriter-live-page-header {
-  margin-bottom: 0.25rem;
-  color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
-  text-align: center;
+  display: none;
 }
 
 .pdf-font-rewriter-live-surface {
@@ -124,10 +121,7 @@
 }
 
 .pdf-font-rewriter-live-page-status {
-  margin-top: 0.35rem;
-  color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
-  text-align: center;
+  display: none;
 }
 
 .textLayer {

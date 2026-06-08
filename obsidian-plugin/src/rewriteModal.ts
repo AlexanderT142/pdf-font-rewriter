@@ -36,7 +36,7 @@ export class PdfRewriteModal extends Modal {
 
     new Setting(contentEl)
       .setName("Target font")
-      .setDesc("Built-in fonts work immediately. Choose custom to use your own .ttf or .otf file.")
+      .setDesc("Built-in fonts install automatically. Choose custom to use your own .ttf or .otf file.")
       .addDropdown((dropdown) => {
         for (const font of BUILTIN_FONTS) {
           dropdown.addOption(font.id, font.label);

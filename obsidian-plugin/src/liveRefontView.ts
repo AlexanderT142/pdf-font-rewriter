@@ -27,11 +27,11 @@ const MAX_SCALE = 3.0;
 const ZOOM_STEP = 0.15;
 const OBSERVER_ROOT_MARGIN = "1400px 0px";
 
-type PdfJsWorkerGlobal = typeof globalThis & {
+type PdfJsWorkerWindow = typeof window & {
   pdfjsWorker?: { WorkerMessageHandler: unknown };
 };
 
-(globalThis as PdfJsWorkerGlobal).pdfjsWorker ??= { WorkerMessageHandler };
+(window as PdfJsWorkerWindow).pdfjsWorker ??= { WorkerMessageHandler };
 
 interface PageRenderState {
   pageIndex: number;
@@ -127,9 +127,15 @@ export class LiveRefontPdfView extends FileView {
     titleEl.setText(file.path);
 
     const actionsEl = this.toolbarEl.createDiv({ cls: "pdf-font-rewriter-live-actions" });
-    this.addToolbarButton(actionsEl, "Zoom out", "-", () => this.setScale(this.scale - ZOOM_STEP));
-    this.addToolbarButton(actionsEl, "Reset zoom", "100%", () => this.setScale(DEFAULT_SCALE));
-    this.addToolbarButton(actionsEl, "Zoom in", "+", () => this.setScale(this.scale + ZOOM_STEP));
+    this.addToolbarButton(actionsEl, "Zoom out", "-", () => {
+      void this.setScale(this.scale - ZOOM_STEP);
+    });
+    this.addToolbarButton(actionsEl, "Reset zoom", "100%", () => {
+      void this.setScale(DEFAULT_SCALE);
+    });
+    this.addToolbarButton(actionsEl, "Zoom in", "+", () => {
+      void this.setScale(this.scale + ZOOM_STEP);
+    });
 
     this.statusEl = this.toolbarEl.createDiv({ cls: "pdf-font-rewriter-live-status" });
     this.statusEl.setText(`PDF.js ${pdfjsVersion}: loading`);
@@ -199,9 +205,11 @@ export class LiveRefontPdfView extends FileView {
     for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
       const pageEl = this.scrollerEl.createDiv({ cls: "pdf-font-rewriter-live-page" });
       pageEl.setAttribute("data-page-index", String(pageIndex));
-      pageEl.style.setProperty("--total-scale-factor", String(this.scale));
-      pageEl.style.setProperty("--scale-round-x", "1px");
-      pageEl.style.setProperty("--scale-round-y", "1px");
+      pageEl.setCssProps({
+        "--total-scale-factor": String(this.scale),
+        "--scale-round-x": "1px",
+        "--scale-round-y": "1px",
+      });
 
       const pageHeaderEl = pageEl.createDiv({ cls: "pdf-font-rewriter-live-page-header" });
       pageHeaderEl.setText(`Page ${pageIndex + 1}`);
@@ -210,7 +218,7 @@ export class LiveRefontPdfView extends FileView {
       const canvas = surfaceEl.createEl("canvas", {
         cls: "pdf-font-rewriter-live-canvas",
       });
-      const textlessCanvas = document.createElement("canvas");
+      const textlessCanvas = this.contentEl.ownerDocument.createElement("canvas");
       const overlayCanvas = surfaceEl.createEl("canvas", {
         cls: "pdf-font-rewriter-live-refont-overlay",
       });
@@ -323,24 +331,32 @@ export class LiveRefontPdfView extends FileView {
     const pixelWidth = Math.max(1, Math.floor(viewport.width * outputScale));
     const pixelHeight = Math.max(1, Math.floor(viewport.height * outputScale));
 
-    state.pageEl.style.setProperty("--total-scale-factor", String(this.scale));
-    state.pageEl.style.width = `${width}px`;
-    state.pageEl.style.minHeight = `${height}px`;
+    state.pageEl.setCssProps({ "--total-scale-factor": String(this.scale) });
+    state.pageEl.setCssStyles({
+      width: `${width}px`,
+      minHeight: `${height}px`,
+    });
 
     const surfaceEl = state.canvas.parentElement;
     if (surfaceEl) {
-      surfaceEl.style.width = `${width}px`;
-      surfaceEl.style.height = `${height}px`;
+      surfaceEl.setCssStyles({
+        width: `${width}px`,
+        height: `${height}px`,
+      });
     }
 
     state.canvas.width = pixelWidth;
     state.canvas.height = pixelHeight;
-    state.canvas.style.width = `${width}px`;
-    state.canvas.style.height = `${height}px`;
+    state.canvas.setCssStyles({
+      width: `${width}px`,
+      height: `${height}px`,
+    });
     state.overlayCanvas.width = pixelWidth;
     state.overlayCanvas.height = pixelHeight;
-    state.overlayCanvas.style.width = `${width}px`;
-    state.overlayCanvas.style.height = `${height}px`;
+    state.overlayCanvas.setCssStyles({
+      width: `${width}px`,
+      height: `${height}px`,
+    });
     state.textlessCanvas.width = pixelWidth;
     state.textlessCanvas.height = pixelHeight;
     setLayerDimensions(state.textLayerEl, viewport);

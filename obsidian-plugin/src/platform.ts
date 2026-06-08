@@ -18,6 +18,10 @@ export function defaultBackupsDir(): string {
 }
 
 function defaultDataDir(): string {
+  if (process.env.PDF_FONT_REWRITER_DATA_DIR) {
+    return process.env.PDF_FONT_REWRITER_DATA_DIR;
+  }
+
   if (process.platform === "darwin") {
     return path.join(os.homedir(), "Library", "Application Support", "pdf-font-rewriter");
   }

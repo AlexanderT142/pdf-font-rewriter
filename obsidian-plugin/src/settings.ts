@@ -3,6 +3,7 @@ import {
   BUILTIN_FONTS,
   CUSTOM_FONT_ID,
   DEFAULT_BUILTIN_FONT_ID,
+  installOrUpdateBuiltinFonts,
 } from "./builtinFonts";
 import { installOrUpdateHelper } from "./helperInstaller";
 import { DEFAULT_HELPER_RELEASE_BASE_URL } from "./helperRelease";
@@ -17,6 +18,8 @@ export interface PdfFontRewriterSettings {
   helperSha256: string;
   targetFontSource: "builtin" | "custom";
   builtinFontId: string;
+  builtinFontsVersion: string;
+  builtinFontSha256: Record<string, string>;
   targetFontPath: string;
   cjkFallbackPath: string;
   outputMode: "copy" | "replace";
@@ -46,6 +49,8 @@ export const DEFAULT_SETTINGS: PdfFontRewriterSettings = {
   helperSha256: "",
   targetFontSource: "builtin",
   builtinFontId: DEFAULT_BUILTIN_FONT_ID,
+  builtinFontsVersion: "",
+  builtinFontSha256: {},
   targetFontPath: "",
   cjkFallbackPath: "",
   outputMode: "copy",
@@ -114,6 +119,29 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
             }),
         );
     }
+
+    new Setting(containerEl).setName("Built-in fonts").setHeading();
+
+    const fontStatus = this.plugin.settings.builtinFontsVersion
+      ? `Installed from release ${this.plugin.settings.builtinFontsVersion}`
+      : "Will install after plugin activation, or on first use.";
+
+    new Setting(containerEl)
+      .setName("Font assets")
+      .setDesc(fontStatus)
+      .addButton((button) =>
+        button.setButtonText("Install / update").onClick(async () => {
+          button.setDisabled(true);
+          try {
+            await installOrUpdateBuiltinFonts(this.plugin, { notify: true });
+            this.display();
+          } catch (error) {
+            console.error(error);
+          } finally {
+            button.setDisabled(false);
+          }
+        }),
+      );
 
     new Setting(containerEl)
       .setName("Mode")
@@ -287,7 +315,7 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Helper release URL")
       .setDesc(
-        "Advanced: base URL containing helper-manifest.json and helper binary assets. Leave blank to use the helper binary path directly.",
+        "Advanced: base URL containing helper-manifest.json, font-manifest.json, and release assets. Leave blank to use the helper binary path directly.",
       )
       .addText((text) =>
         text

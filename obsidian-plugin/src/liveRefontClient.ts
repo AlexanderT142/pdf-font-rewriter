@@ -13,6 +13,16 @@ import type PdfFontRewriterPlugin from "./main";
 const REQUEST_TIMEOUT_MS = 1000 * 45;
 const loadedFontFamilies = new Set<string>();
 
+type FontFaceConstructor = new (
+  family: string,
+  source: string | BufferSource,
+  descriptors?: FontFaceDescriptors,
+) => FontFace;
+
+type FontWindow = Window & {
+  FontFace?: FontFaceConstructor;
+};
+
 interface PendingRequest {
   resolve: (plan: LiveRefontPagePlan) => void;
   reject: (error: Error) => void;
@@ -69,7 +79,7 @@ export class LiveRefontClient {
 
   dispose(): void {
     for (const [id, pending] of this.pending) {
-      window.clearTimeout(pending.timeout);
+      activeWindow.clearTimeout(pending.timeout);
       pending.reject(new Error("Live refont client disposed."));
       this.pending.delete(id);
     }
@@ -97,7 +107,7 @@ export class LiveRefontClient {
     };
 
     return new Promise<LiveRefontPagePlan>((resolve, reject) => {
-      const timeout = window.setTimeout(() => {
+      const timeout = activeWindow.setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`Live refont planner timed out for page ${pageIndex + 1}.`));
       }, REQUEST_TIMEOUT_MS);
@@ -183,7 +193,7 @@ export class LiveRefontClient {
     }
 
     this.pending.delete(response.id);
-    window.clearTimeout(pending.timeout);
+    activeWindow.clearTimeout(pending.timeout);
     if (response.error) {
       pending.reject(new Error(response.error.message));
       return;
@@ -197,7 +207,7 @@ export class LiveRefontClient {
 
   private rejectAll(error: Error): void {
     for (const [id, pending] of this.pending) {
-      window.clearTimeout(pending.timeout);
+      activeWindow.clearTimeout(pending.timeout);
       pending.reject(error);
       this.pending.delete(id);
     }
@@ -205,7 +215,8 @@ export class LiveRefontClient {
 }
 
 async function loadFontFace(family: string, buffer: Buffer): Promise<void> {
-  if (!("FontFace" in window) || !document.fonts) {
+  const fontWindow = activeWindow as FontWindow;
+  if (!fontWindow.FontFace || !activeDocument.fonts) {
     return;
   }
 
@@ -215,9 +226,9 @@ async function loadFontFace(family: string, buffer: Buffer): Promise<void> {
 
   const data = new Uint8Array(buffer.byteLength);
   data.set(buffer);
-  const face = new FontFace(family, data);
+  const face = new fontWindow.FontFace(family, data);
   await face.load();
-  (document.fonts as FontFaceSet & { add: (font: FontFace) => void }).add(face);
+  (activeDocument.fonts as FontFaceSet & { add: (font: FontFace) => void }).add(face);
   loadedFontFamilies.add(family);
 }
 

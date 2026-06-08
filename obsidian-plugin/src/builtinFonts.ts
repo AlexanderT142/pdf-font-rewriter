@@ -1,21 +1,18 @@
-import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
 
-import andikaRegular from "../fonts/Andika-Regular.ttf";
-import atkinsonHyperlegibleRegular from "../fonts/AtkinsonHyperlegible-Regular.ttf";
-import charisSilRegular from "../fonts/CharisSIL-Regular.ttf";
-import ebGaramondRegular from "../fonts/EBGaramond-Regular.ttf";
-import interRegular from "../fonts/Inter-Regular.ttf";
-import latoRegular from "../fonts/Lato-Regular.ttf";
-import notoSansRegular from "../fonts/NotoSans-Regular.ttf";
-import openDyslexicRegular from "../fonts/OpenDyslexic-Regular.otf";
-import openSansRegular from "../fonts/OpenSans-Regular.ttf";
-import texGyrePagellaRegular from "../fonts/TeXGyrePagella-Regular.otf";
-import xCharterRegular from "../fonts/XCharter-Regular.otf";
+import { Notice } from "obsidian";
 
 import type PdfFontRewriterPlugin from "./main";
+import { DEFAULT_HELPER_RELEASE_BASE_URL, FONT_MANIFEST_NAME } from "./helperRelease";
 import { defaultBuiltinFontsDir } from "./platform";
+import {
+  downloadBuffer,
+  joinReleaseUrl,
+  removeIfExists,
+  sha256Buffer,
+  sha256File,
+} from "./releaseAssets";
 
 export const CUSTOM_FONT_ID = "custom";
 export const DEFAULT_BUILTIN_FONT_ID = "charis-sil";
@@ -25,7 +22,18 @@ export interface BuiltinFont {
   label: string;
   family: "serif" | "sans";
   fileName: string;
-  base64Chunks: readonly string[];
+}
+
+interface FontAsset {
+  name: string;
+  fileName: string;
+  sha256: string;
+  size_bytes: number;
+}
+
+interface FontManifest {
+  version: string;
+  assets: Record<string, FontAsset>;
 }
 
 export const BUILTIN_FONTS: BuiltinFont[] = [
@@ -34,77 +42,66 @@ export const BUILTIN_FONTS: BuiltinFont[] = [
     label: "Serif - Charis SIL",
     family: "serif",
     fileName: "CharisSIL-Regular.ttf",
-    base64Chunks: charisSilRegular,
   },
   {
     id: "xcharter",
     label: "Serif - XCharter",
     family: "serif",
     fileName: "XCharter-Regular.otf",
-    base64Chunks: xCharterRegular,
   },
   {
     id: "tex-gyre-pagella",
     label: "Serif - TeX Gyre Pagella",
     family: "serif",
     fileName: "TeXGyrePagella-Regular.otf",
-    base64Chunks: texGyrePagellaRegular,
   },
   {
     id: "eb-garamond",
     label: "Serif - EB Garamond",
     family: "serif",
     fileName: "EBGaramond-Regular.ttf",
-    base64Chunks: ebGaramondRegular,
   },
   {
     id: "inter",
     label: "Sans - Inter",
     family: "sans",
     fileName: "Inter-Regular.ttf",
-    base64Chunks: interRegular,
   },
   {
     id: "noto-sans",
     label: "Sans - Noto Sans",
     family: "sans",
     fileName: "NotoSans-Regular.ttf",
-    base64Chunks: notoSansRegular,
   },
   {
     id: "open-sans",
     label: "Sans - Open Sans",
     family: "sans",
     fileName: "OpenSans-Regular.ttf",
-    base64Chunks: openSansRegular,
   },
   {
     id: "lato",
     label: "Sans - Lato",
     family: "sans",
     fileName: "Lato-Regular.ttf",
-    base64Chunks: latoRegular,
   },
   {
     id: "atkinson-hyperlegible",
     label: "Sans - Atkinson Hyperlegible",
     family: "sans",
     fileName: "AtkinsonHyperlegible-Regular.ttf",
-    base64Chunks: atkinsonHyperlegibleRegular,
   },
   {
     id: "andika",
     label: "Sans - Andika",
     family: "sans",
     fileName: "Andika-Regular.ttf",
-    base64Chunks: andikaRegular,
   },
   {
     id: "open-dyslexic",
     label: "Sans - OpenDyslexic",
     family: "sans",
     fileName: "OpenDyslexic-Regular.otf",
-    base64Chunks: openDyslexicRegular,
   },
 ];
 
@@ -116,34 +113,115 @@ export function isBuiltinFontId(id: string): boolean {
   return BUILTIN_FONTS.some((font) => font.id === id);
 }
 
+export async function installOrUpdateBuiltinFonts(
+  plugin: PdfFontRewriterPlugin,
+  options: { notify?: boolean } = {},
+): Promise<void> {
+  const manifest = await fetchFontManifest(fontReleaseBaseUrl(plugin));
+  let installedCount = 0;
+
+  for (const font of BUILTIN_FONTS) {
+    const installed = await ensureBuiltinFontInstalled(plugin, font, manifest);
+    if (installed) {
+      installedCount += 1;
+    }
+  }
+
+  plugin.settings.builtinFontsVersion = manifest.version;
+  await plugin.saveSettings();
+
+  if (options.notify) {
+    new Notice(`PDF Font Rewriter: ${installedCount} built-in fonts installed.`);
+  }
+}
+
 export async function resolveTargetFontPath(plugin: PdfFontRewriterPlugin): Promise<string> {
   if (plugin.settings.targetFontSource === "custom") {
     return plugin.settings.targetFontPath;
   }
 
   const font = getBuiltinFont(plugin.settings.builtinFontId);
-  return ensureBuiltinFontInstalled(font);
+  const manifest = await fetchFontManifest(fontReleaseBaseUrl(plugin));
+  await ensureBuiltinFontInstalled(plugin, font, manifest);
+  return fontPath(font);
 }
 
-async function ensureBuiltinFontInstalled(font: BuiltinFont): Promise<string> {
-  const fontPath = path.join(defaultBuiltinFontsDir(), font.fileName);
-  const buffer = Buffer.from(font.base64Chunks.join(""), "base64");
-  const expectedHash = sha256(buffer);
-
-  try {
-    const existing = await fs.readFile(fontPath);
-    if (sha256(existing) === expectedHash) {
-      return fontPath;
-    }
-  } catch {
-    // Missing or unreadable fonts are rewritten from the embedded copy below.
+async function ensureBuiltinFontInstalled(
+  plugin: PdfFontRewriterPlugin,
+  font: BuiltinFont,
+  manifest: FontManifest,
+): Promise<boolean> {
+  const asset = manifest.assets[font.fileName];
+  if (!asset) {
+    throw new Error(`No built-in font asset is available for ${font.fileName}.`);
   }
 
-  await fs.mkdir(path.dirname(fontPath), { recursive: true });
-  await fs.writeFile(fontPath, buffer);
-  return fontPath;
+  const targetPath = fontPath(font);
+  if (await installedFontMatches(targetPath, manifest.version, asset, plugin.settings)) {
+    return false;
+  }
+
+  const assetUrl = joinReleaseUrl(fontReleaseBaseUrl(plugin), asset.name);
+  const buffer = await downloadBuffer(assetUrl);
+  const digest = sha256Buffer(buffer);
+
+  if (digest !== asset.sha256) {
+    throw new Error(`Font checksum mismatch for ${font.fileName}. Expected ${asset.sha256}, received ${digest}.`);
+  }
+
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  const tempPath = `${targetPath}.download`;
+  await fs.writeFile(tempPath, buffer);
+  await removeIfExists(targetPath);
+  await fs.rename(tempPath, targetPath);
+
+  plugin.settings.builtinFontSha256[font.fileName] = asset.sha256;
+  plugin.settings.builtinFontsVersion = manifest.version;
+  await plugin.saveSettings();
+  return true;
 }
 
-function sha256(buffer: Buffer): string {
-  return crypto.createHash("sha256").update(buffer).digest("hex");
+async function installedFontMatches(
+  targetPath: string,
+  version: string,
+  asset: FontAsset,
+  settings: PdfFontRewriterPlugin["settings"],
+): Promise<boolean> {
+  if (
+    settings.builtinFontsVersion !== version ||
+    settings.builtinFontSha256[asset.fileName] !== asset.sha256
+  ) {
+    return false;
+  }
+
+  try {
+    return (await sha256File(targetPath)) === asset.sha256;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchFontManifest(baseUrl: string): Promise<FontManifest> {
+  const manifestUrl = joinReleaseUrl(baseUrl, FONT_MANIFEST_NAME);
+  const buffer = await downloadBuffer(manifestUrl);
+  const manifest = JSON.parse(buffer.toString("utf8")) as FontManifest;
+  validateFontManifest(manifest);
+  return manifest;
+}
+
+function validateFontManifest(manifest: FontManifest): void {
+  if (!manifest.version || typeof manifest.version !== "string") {
+    throw new Error("Invalid font manifest: missing version.");
+  }
+  if (!manifest.assets || typeof manifest.assets !== "object") {
+    throw new Error("Invalid font manifest: missing assets.");
+  }
+}
+
+function fontReleaseBaseUrl(plugin: PdfFontRewriterPlugin): string {
+  return plugin.settings.helperReleaseBaseUrl || DEFAULT_HELPER_RELEASE_BASE_URL;
+}
+
+function fontPath(font: BuiltinFont): string {
+  return path.join(defaultBuiltinFontsDir(), font.fileName);
 }

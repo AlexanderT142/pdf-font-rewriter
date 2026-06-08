@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import { pathToFileURL } from "url";
 
+import { BUILTIN_FONTS, installOrUpdateBuiltinFonts } from "../src/builtinFonts";
 import { installOrUpdateHelper } from "../src/helperInstaller";
 import { HELPER_VERSION } from "../src/helperRelease";
 import type { PdfFontRewriterSettings } from "../src/settings";
@@ -20,6 +21,7 @@ if (!releaseDir) {
 }
 
 const installDir = await fs.mkdtemp(path.join(os.tmpdir(), "pdf-font-rewriter-helper-"));
+process.env.PDF_FONT_REWRITER_DATA_DIR = path.join(installDir, "data");
 const helperPath = path.join(installDir, process.platform === "win32" ? "refont-helper.exe" : "refont-helper");
 const settings: PdfFontRewriterSettings = {
   helperPath,
@@ -28,12 +30,20 @@ const settings: PdfFontRewriterSettings = {
   helperPlatform: "",
   helperSha256: "",
   targetFontPath: "",
+  targetFontSource: "builtin",
+  builtinFontId: "charis-sil",
+  builtinFontsVersion: "",
+  builtinFontSha256: {},
   cjkFallbackPath: "",
   outputMode: "copy",
   outputSuffix: "_refonted",
+  openPdfWithLiveView: false,
+  pageScope: "visible-window",
+  visiblePageRadius: 1,
   pageRange: "",
   openAfterRewrite: true,
   mode: "conservative",
+  backups: [],
 };
 
 const plugin: TestPlugin = {
@@ -58,4 +68,20 @@ if (plugin.settings.helperVersion !== HELPER_VERSION) {
   throw new Error(`Installed helper version mismatch: ${plugin.settings.helperVersion}`);
 }
 
+await installOrUpdateBuiltinFonts(plugin as never);
+
+if (plugin.settings.builtinFontsVersion !== HELPER_VERSION) {
+  throw new Error(`Installed font version mismatch: ${plugin.settings.builtinFontsVersion}`);
+}
+
+for (const font of BUILTIN_FONTS) {
+  const fontPath = path.join(process.env.PDF_FONT_REWRITER_DATA_DIR, "fonts", font.fileName);
+  const fontBuffer = await fs.readFile(fontPath);
+  const fontDigest = crypto.createHash("sha256").update(fontBuffer).digest("hex");
+  if (fontDigest !== plugin.settings.builtinFontSha256[font.fileName]) {
+    throw new Error(`Installed font checksum mismatch for ${font.fileName}: ${fontDigest}`);
+  }
+}
+
 console.log(helperPath);
+console.log(path.join(process.env.PDF_FONT_REWRITER_DATA_DIR, "fonts"));
