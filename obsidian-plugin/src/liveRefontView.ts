@@ -13,7 +13,6 @@ import {
   type PageViewport,
   type RenderTask,
 } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { WorkerMessageHandler } from "pdfjs-dist/legacy/build/pdf.worker.mjs";
 
 import { LiveRefontClient } from "./liveRefontClient";
 import type { LiveRefontDrawRun, LiveRefontPagePlan } from "./liveRefontProtocol";
@@ -30,8 +29,6 @@ const OBSERVER_ROOT_MARGIN = "1400px 0px";
 type PdfJsWorkerWindow = typeof window & {
   pdfjsWorker?: { WorkerMessageHandler: unknown };
 };
-
-(window as PdfJsWorkerWindow).pdfjsWorker ??= { WorkerMessageHandler };
 
 interface PageRenderState {
   pageIndex: number;
@@ -163,8 +160,10 @@ export class LiveRefontPdfView extends FileView {
       return;
     }
 
+    let restorePdfJsWorker: (() => void) | null = null;
     try {
       const data = new Uint8Array(await this.plugin.app.vault.readBinary(file));
+      restorePdfJsWorker = await installTemporaryPdfJsWorker();
       this.loadingTask = getDocument({
         data,
         useWorkerFetch: false,
@@ -186,6 +185,8 @@ export class LiveRefontPdfView extends FileView {
       console.error(error);
       this.statusEl.setText("Live view failed to load PDF.");
       new Notice("PDF Font Rewriter: Live Refont View could not load this PDF.");
+    } finally {
+      restorePdfJsWorker?.();
     }
   }
 
@@ -885,6 +886,21 @@ export class LiveRefontPdfView extends FileView {
       `Live view ready: ${this.pageCount} pages | checked ${entries.length}, original-only ${originalOnly.length}${partialText}${leftText}`,
     );
   }
+}
+
+async function installTemporaryPdfJsWorker(): Promise<() => void> {
+  const win = window as PdfJsWorkerWindow;
+  const hadPrevious = Object.prototype.hasOwnProperty.call(win, "pdfjsWorker");
+  const previous = win.pdfjsWorker;
+  const workerModule = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  win.pdfjsWorker = { WorkerMessageHandler: workerModule.WorkerMessageHandler };
+  return () => {
+    if (hadPrevious) {
+      win.pdfjsWorker = previous;
+    } else {
+      delete win.pdfjsWorker;
+    }
+  };
 }
 
 function isDrawableRun(run: LiveRefontDrawRun): boolean {
