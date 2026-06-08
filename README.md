@@ -18,11 +18,11 @@ It does not try to guess everything. If a page is image-only, rotated, too uncer
 
 1. Install **PDF Font Rewriter** from Obsidian Community plugins.
 2. Open a PDF in Obsidian.
-3. Click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Rewrite PDF font**, or run **PDF Font Rewriter: Rewrite active PDF font** from the command palette.
-4. Choose one of the built-in fonts, or choose **Custom font path** if you want to use your own `.ttf` or `.otf` file.
-5. Choose whether to create a separate PDF or replace the current PDF.
-6. For live reading, run **PDF Font Rewriter: Open active PDF in Live Refont View** from the command palette, or right-click a PDF and choose **Open in Live Refont View**.
-7. To export a rewritten PDF instead, leave the scope on **Visible page + nearby pages** for normal reading, then click **Rewrite visible pages**. It rewrites the PDF sheet Obsidian is showing, plus the nearby sheets you choose, without using the printed page label inside the book.
+3. For normal reading, click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Open in Live Refont View**, or run **PDF Font Rewriter: Open active PDF in Live Refont View** from the command palette.
+4. Choose the target font in plugin settings. Built-in fonts install automatically; choose **Custom font path** if you want to use your own `.ttf` or `.otf` file.
+5. Live Refont View keeps the original PDF file unchanged while rendering safe text in the chosen font.
+6. To export a rewritten PDF instead, run **PDF Font Rewriter: Export active PDF with refonted text** from the command palette.
+7. For export, leave the scope on **Visible page + nearby pages** for normal reading, then click **Rewrite visible pages**. It rewrites the PDF sheet Obsidian is showing, plus the nearby sheets you choose, without using the printed page label inside the book.
 
 When text is changed, the plugin either writes a rewritten PDF next to the original PDF or replaces the current PDF, depending on the save option you chose. In replace mode, it first saves a restore copy outside the vault, then overwrites the same PDF path only after conversion succeeds. If the selected pages cannot be changed safely, it does not keep an unchanged output PDF.
 

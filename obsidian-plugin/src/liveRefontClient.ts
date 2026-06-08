@@ -79,7 +79,7 @@ export class LiveRefontClient {
 
   dispose(): void {
     for (const [id, pending] of this.pending) {
-      activeWindow.clearTimeout(pending.timeout);
+      window.clearTimeout(pending.timeout);
       pending.reject(new Error("Live refont client disposed."));
       this.pending.delete(id);
     }
@@ -107,7 +107,7 @@ export class LiveRefontClient {
     };
 
     return new Promise<LiveRefontPagePlan>((resolve, reject) => {
-      const timeout = activeWindow.setTimeout(() => {
+      const timeout = window.setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`Live refont planner timed out for page ${pageIndex + 1}.`));
       }, REQUEST_TIMEOUT_MS);
@@ -193,7 +193,7 @@ export class LiveRefontClient {
     }
 
     this.pending.delete(response.id);
-    activeWindow.clearTimeout(pending.timeout);
+    window.clearTimeout(pending.timeout);
     if (response.error) {
       pending.reject(new Error(response.error.message));
       return;
@@ -207,7 +207,7 @@ export class LiveRefontClient {
 
   private rejectAll(error: Error): void {
     for (const [id, pending] of this.pending) {
-      activeWindow.clearTimeout(pending.timeout);
+      window.clearTimeout(pending.timeout);
       pending.reject(error);
       this.pending.delete(id);
     }

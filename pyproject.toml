@@ -1,6 +1,6 @@
 [project]
 name = "pdf-font-rewriter"
-version = "0.1.18"
+version = "0.1.19"
 description = "Conservative PDF native-text font rewriter"
 requires-python = ">=3.11"
 license = "Apache-2.0"
