@@ -9,6 +9,10 @@ export function defaultBuiltinFontsDir(): string {
   return path.join(defaultDataDir(), "fonts");
 }
 
+export function defaultCustomFontsDir(): string {
+  return path.join(defaultDataDir(), "custom-fonts");
+}
+
 export function defaultReportsDir(): string {
   return path.join(defaultDataDir(), "reports");
 }

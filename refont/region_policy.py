@@ -196,7 +196,11 @@ def _region_convertible(line: TextLine) -> bool:
         return False
     if line.safety == "safe":
         return True
-    return _scale_only_rejection(decision.reject_reasons)
+    # Judge on the line's full unsafe reasons, not just the fit-internal
+    # reject reasons: gates applied outside the fit (e.g. mixed paint or
+    # styles) must keep the line non-convertible so the region skips as a
+    # whole instead of resurrecting it.
+    return _scale_only_rejection(tuple(line.unsafe_reasons))
 
 
 def _scale_only_rejection(reasons: tuple[str, ...]) -> bool:

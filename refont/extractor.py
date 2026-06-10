@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from math import isfinite
+from statistics import median
 
 import fitz
 
@@ -57,7 +58,7 @@ def group_runs_into_lines(runs: list[TextRun]) -> list[TextLine]:
 
         text = _join_runs_for_line(ordered)
         bbox = _union_rects(run.bbox for run in ordered)
-        baseline_y = sum(run.origin[1] for run in ordered) / len(ordered)
+        baseline_y = _line_baseline_y(ordered)
         lines.append(
             TextLine(
                 text=text,
@@ -221,6 +222,31 @@ def _runs_from_rawdict(page: fitz.Page) -> list[TextRun]:
                 )
                 seqno += 1
     return runs
+
+
+def _line_baseline_y(runs: list[TextRun]) -> float:
+    """Char-count-weighted median origin of the dominant-size runs.
+
+    A mean over all runs lets superscripts, footnote markers, and slightly
+    raised small runs drag the drawn baseline off the true text baseline.
+    Runs whose font size differs materially from the line's median size are
+    excluded from the estimate (their text still belongs to the line).
+    """
+    sizes = [run.font_size for run in runs if run.font_size > 0]
+    median_size = float(median(sizes)) if sizes else 0.0
+    dominant = [
+        run
+        for run in runs
+        if median_size <= 0 or abs(run.font_size - median_size) <= 0.20 * median_size
+    ]
+    if not dominant:
+        dominant = runs
+
+    weighted: list[float] = []
+    for run in dominant:
+        count = max(1, sum(1 for char in run.text if not char.isspace()))
+        weighted.extend([run.origin[1]] * min(count, 80))
+    return float(median(weighted))
 
 
 def _same_line(a: TextRun, b: TextRun) -> bool:

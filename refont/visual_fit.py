@@ -6,6 +6,7 @@ from statistics import median
 import fitz
 
 from .font_utils import is_cjk_codepoint
+from .ink_sampler import PageInkSampler
 from .models import (
     AnchorMode,
     CharGeometry,
@@ -25,6 +26,13 @@ from .models import (
 )
 from .shaper import measure_profile_text_du
 
+# Assumed ratio of original CJK ideograph ink height to the nominal font
+# size, used when no trustworthy observed metric is available. CJK fonts
+# draw ideographs inside an "ideographic character face" of roughly
+# 0.86-0.93 em (Hiragino Sans GB measures 0.927, Noto CJK ~0.88); assuming
+# 1.00 sized CJK segments ~8% too large relative to the source.
+CJK_INK_RATIO = 0.91
+
 
 @dataclass(frozen=True)
 class PageVisualStats:
@@ -35,13 +43,17 @@ class PageVisualStats:
     body_xheight_pt: float | None
 
 
-def analyze_page_visual_stats(page_rect: fitz.Rect, lines: list[TextLine]) -> PageVisualStats:
+def analyze_page_visual_stats(
+    page_rect: fitz.Rect,
+    lines: list[TextLine],
+    sampler: "PageInkSampler | None" = None,
+) -> PageVisualStats:
     body_like_heights: list[float] = []
     body_like_xheights: list[float] = []
     baselines: list[float] = []
 
     for line in lines:
-        visual = build_original_line_visual(line, page_rect)
+        visual = build_original_line_visual(line, page_rect, sampler)
         text = line.text.strip()
         if not text:
             continue
@@ -67,13 +79,26 @@ def analyze_page_visual_stats(page_rect: fitz.Rect, lines: list[TextLine]) -> Pa
     )
 
 
-def build_original_line_visual(line: TextLine, page_rect: fitz.Rect) -> OriginalLineVisual:
+def build_original_line_visual(
+    line: TextLine,
+    page_rect: fitz.Rect,
+    sampler: "PageInkSampler | None" = None,
+) -> OriginalLineVisual:
     chars = _line_chars(line)
     nonspace_chars = [char for char in chars if char.char.strip()]
     nonspace_bbox = _union_rects([char.bbox for char in nonspace_chars]) if nonspace_chars else line.bbox
     baseline_y = line.baseline_y
-    orig_top = max(0.0, baseline_y - nonspace_bbox[1])
-    orig_bottom = max(0.0, nonspace_bbox[3] - baseline_y)
+    # Vertical extents prefer real painted ink over char font boxes, so the
+    # overflow check compares target ink against source ink, not against the
+    # (much taller) ascender/descender box.
+    ink_top_y = nonspace_bbox[1]
+    ink_bottom_y = nonspace_bbox[3]
+    if sampler is not None:
+        extent = sampler.line_ink_extent_pt(nonspace_bbox)
+        if extent is not None and extent[1] > extent[0]:
+            ink_top_y, ink_bottom_y = extent
+    orig_top = max(0.0, baseline_y - ink_top_y)
+    orig_bottom = max(0.0, ink_bottom_y - baseline_y)
     anchor_mode = _anchor_mode(line, page_rect)
     anchor_x = _anchor_x(line, anchor_mode)
 
@@ -83,11 +108,11 @@ def build_original_line_visual(line: TextLine, page_rect: fitz.Rect) -> Original
         baseline_y=baseline_y,
         orig_top_pt=orig_top,
         orig_bottom_pt=orig_bottom,
-        orig_ink_height_pt=max(0.0, nonspace_bbox[3] - nonspace_bbox[1]),
+        orig_ink_height_pt=max(0.0, ink_bottom_y - ink_top_y),
         orig_advance_pt=max(0.0, nonspace_bbox[2] - nonspace_bbox[0]),
         anchor_mode=anchor_mode,
         anchor_x=anchor_x,
-        char_stats=_char_visual_stats(nonspace_chars, line),
+        char_stats=_char_visual_stats(nonspace_chars, line, sampler),
     )
 
 
@@ -139,9 +164,10 @@ def fit_visual_geometry(
     page_stats: PageVisualStats,
     mode: str = "conservative",
     thresholds: VisualFitThresholds | None = None,
+    sampler: "PageInkSampler | None" = None,
 ) -> FitResult:
     thresholds = thresholds or VisualFitThresholds(strict_unknown=(mode == "conservative"))
-    original = build_original_line_visual(line, page_rect)
+    original = build_original_line_visual(line, page_rect, sampler)
     role, confidence = classify_line_role(line, original, page_stats)
 
     reject_reasons: list[str] = []
@@ -277,8 +303,13 @@ def _build_segment_plans(
         x_offset += advance_pt
 
     if role == LineRole.MIXED_LATIN_CJK and plans:
-        sizes = [plan.size_pt for plan in plans]
-        if min(sizes) > 0 and max(sizes) / min(sizes) > 1.18:
+        # Whitespace-only segments carry no ink, so their size cannot create
+        # a visible jump; lone spaces at script boundaries inherit the
+        # neighboring fallback font and would otherwise trip this gate.
+        sizes = [plan.size_pt for plan in plans if plan.text.strip()]
+        # Within one line, per-script sizes more than ~8% apart read as a
+        # visible size jump between Latin and CJK segments.
+        if sizes and min(sizes) > 0 and max(sizes) / min(sizes) > 1.08:
             reject_reasons.append("mixed fallback segment sizes diverge too far")
 
     return _Plan(
@@ -348,32 +379,32 @@ def _choose_metric(
     source_size = _line_font_size(line)
 
     if role == LineRole.PAGE_NUMBER:
-        original_metric = _original_metric(stats.digit_height_pt, source_size, 0.68, stats.nonspace_height_pt)
-        return (VisualMetricKind.DIGIT_HEIGHT, original_metric, primary_profile.digit_height)
+        original_metric = _original_metric(VisualMetricKind.DIGIT_HEIGHT, stats.digit_height_pt, source_size, 0.68, stats.measured_ink)
+        return (VisualMetricKind.DIGIT_HEIGHT, original_metric, primary_profile.digit_ink_height or primary_profile.digit_height)
     if role == LineRole.CJK_BODY:
-        original_metric = _original_metric(stats.cjk_height_pt, source_size, 1.00, stats.nonspace_height_pt)
+        original_metric = _original_metric(VisualMetricKind.IDEOGRAPHIC_HEIGHT, stats.cjk_height_pt, source_size, CJK_INK_RATIO, stats.measured_ink)
         return (
             VisualMetricKind.IDEOGRAPHIC_HEIGHT,
             original_metric,
             _ideographic_height(primary_profile),
         )
     if role == LineRole.MIXED_LATIN_CJK:
-        if primary_profile.x_height:
-            original_metric = _original_metric(stats.lower_mid_height_pt, source_size, 0.50, stats.nonspace_height_pt)
-            return (VisualMetricKind.X_HEIGHT, original_metric, primary_profile.x_height)
-        original_metric = _original_metric(None, source_size, 0.75, stats.nonspace_height_pt)
+        if primary_profile.x_ink_height or primary_profile.x_height:
+            original_metric = _original_metric(VisualMetricKind.X_HEIGHT, stats.lower_mid_height_pt, source_size, 0.50, stats.measured_ink)
+            return (VisualMetricKind.X_HEIGHT, original_metric, primary_profile.x_ink_height or primary_profile.x_height)
+        original_metric = _original_metric(VisualMetricKind.ACTUAL_LINE_INK, None, source_size, 0.75)
         return (VisualMetricKind.ACTUAL_LINE_INK, original_metric, _actual_line_ink_du(line.text, primary_profile, segments[0].script))
     if role == LineRole.HEADING and _upper_ratio(line.text) >= 0.70:
-        original_metric = _original_metric(stats.cap_height_pt, source_size, 0.70, stats.nonspace_height_pt)
-        return (VisualMetricKind.CAP_HEIGHT, original_metric, primary_profile.cap_height)
+        original_metric = _original_metric(VisualMetricKind.CAP_HEIGHT, stats.cap_height_pt, source_size, 0.70, stats.measured_ink)
+        return (VisualMetricKind.CAP_HEIGHT, original_metric, primary_profile.cap_ink_height or primary_profile.cap_height)
     if role == LineRole.HEADING:
-        original_metric = _original_metric(None, source_size, 0.75, stats.nonspace_height_pt)
+        original_metric = _original_metric(VisualMetricKind.ACTUAL_LINE_INK, None, source_size, 0.75)
         return (VisualMetricKind.ACTUAL_LINE_INK, original_metric, _actual_line_ink_du(line.text, primary_profile, segments[0].script))
 
-    if primary_profile.x_height:
-        original_metric = _original_metric(stats.lower_mid_height_pt, source_size, 0.50, stats.nonspace_height_pt)
-        return (VisualMetricKind.X_HEIGHT, original_metric, primary_profile.x_height)
-    original_metric = _original_metric(None, source_size, 0.75, stats.nonspace_height_pt)
+    if primary_profile.x_ink_height or primary_profile.x_height:
+        original_metric = _original_metric(VisualMetricKind.X_HEIGHT, stats.lower_mid_height_pt, source_size, 0.50, stats.measured_ink)
+        return (VisualMetricKind.X_HEIGHT, original_metric, primary_profile.x_ink_height or primary_profile.x_height)
+    original_metric = _original_metric(VisualMetricKind.ACTUAL_LINE_INK, None, source_size, 0.75)
     return (VisualMetricKind.ACTUAL_LINE_INK, original_metric, _actual_line_ink_du(line.text, primary_profile, segments[0].script))
 
 
@@ -389,11 +420,11 @@ def _segment_size(
     if role in {LineRole.CJK_BODY, LineRole.MIXED_LATIN_CJK} and segment.script == "cjk":
         ideo_height = _ideographic_height(profile)
         if ideo_height and (stats.cjk_height_pt or stats.nonspace_height_pt):
-            source_metric = _original_metric(stats.cjk_height_pt, _line_font_size(line), 1.00, stats.nonspace_height_pt)
+            source_metric = _original_metric(VisualMetricKind.IDEOGRAPHIC_HEIGHT, stats.cjk_height_pt, _line_font_size(line), CJK_INK_RATIO, stats.measured_ink)
             return source_metric * profile.upem / ideo_height
-    if role == LineRole.MIXED_LATIN_CJK and segment.script != "cjk" and stats.lower_mid_height_pt and profile.x_height:
-        source_metric = _original_metric(stats.lower_mid_height_pt, _line_font_size(line), 0.50, stats.nonspace_height_pt)
-        return source_metric * profile.upem / profile.x_height
+    if role == LineRole.MIXED_LATIN_CJK and segment.script != "cjk" and stats.lower_mid_height_pt and (profile.x_ink_height or profile.x_height):
+        source_metric = _original_metric(VisualMetricKind.X_HEIGHT, stats.lower_mid_height_pt, _line_font_size(line), 0.50, stats.measured_ink)
+        return source_metric * profile.upem / (profile.x_ink_height or profile.x_height)
     return default_size
 
 
@@ -407,17 +438,28 @@ def _profile_for_segment(segment: FontSegment, profiles: dict[str, FontVisualPro
     return profiles[str(segment.font.path)]
 
 
-def _char_visual_stats(chars: list[CharGeometry], line: TextLine) -> CharVisualStats:
+def _char_visual_stats(
+    chars: list[CharGeometry],
+    line: TextLine,
+    sampler: "PageInkSampler | None" = None,
+) -> CharVisualStats:
     lower_heights: list[float] = []
     cap_heights: list[float] = []
     digit_heights: list[float] = []
     cjk_heights: list[float] = []
     nonspace_heights: list[float] = []
 
+    sampler_hits = 0
     for char in chars:
         if not char.char.strip():
             continue
-        height = max(0.0, char.bbox[3] - char.bbox[1])
+        height = None
+        if sampler is not None:
+            height = sampler.char_ink_height_pt(char)
+            if height is not None:
+                sampler_hits += 1
+        if height is None:
+            height = max(0.0, char.bbox[3] - char.bbox[1])
         nonspace_heights.append(height)
         value = char.char
         if value in "acemnorsuvwxz":
@@ -431,7 +473,9 @@ def _char_visual_stats(chars: list[CharGeometry], line: TextLine) -> CharVisualS
 
     fallback_height = max(0.0, line.bbox[3] - line.bbox[1])
     nonspace_height = _median_or_none(nonspace_heights) or fallback_height
+    measured_ink = bool(nonspace_heights) and sampler_hits >= max(3, len(nonspace_heights) // 2)
     return CharVisualStats(
+        measured_ink=measured_ink,
         lower_mid_count=len(lower_heights),
         lower_mid_height_pt=_median_or_none(lower_heights),
         cap_count=len(cap_heights),
@@ -457,18 +501,50 @@ def _line_font_size(line: TextLine) -> float:
     return float(median(sizes)) if sizes else max(1.0, line.bbox[3] - line.bbox[1])
 
 
-def _original_metric(observed_metric: float | None, source_size: float, ratio: float, fallback: float) -> float:
+# Plausible ratios of each perceptual metric to the nominal font size.
+# PyMuPDF texttrace/rawdict char bboxes are usually font boxes (height ==
+# font size for every char), not glyph ink; observed values outside the
+# window for their metric kind are treated as box artifacts and replaced by
+# the role/source-size estimate. Real x-heights live around 0.42-0.56 of the
+# size, caps/digits around 0.60-0.75, CJK ideographs around 0.85-0.95.
+_METRIC_PLAUSIBLE_WINDOWS: dict[VisualMetricKind, tuple[float, float]] = {
+    VisualMetricKind.X_HEIGHT: (0.35, 0.60),
+    VisualMetricKind.CAP_HEIGHT: (0.55, 0.80),
+    VisualMetricKind.DIGIT_HEIGHT: (0.55, 0.80),
+    # Upper bound deliberately < 1.0: PyMuPDF font-box char heights equal the
+    # font size exactly, and real ideograph ink stays below ~0.95 em.
+    VisualMetricKind.IDEOGRAPHIC_HEIGHT: (0.75, 0.97),
+    VisualMetricKind.ACTUAL_LINE_INK: (0.55, 1.05),
+}
+
+# Wider windows for ink-sampled measurements. Real painted ink is trusted
+# further because the nominal PDF font size itself can be off (CID font
+# matrices), but values at/above the font-box signature (~1.0x size for
+# Latin classes) still read as background contamination and are rejected.
+_MEASURED_PLAUSIBLE_WINDOWS: dict[VisualMetricKind, tuple[float, float]] = {
+    VisualMetricKind.X_HEIGHT: (0.30, 0.75),
+    VisualMetricKind.CAP_HEIGHT: (0.45, 0.95),
+    VisualMetricKind.DIGIT_HEIGHT: (0.45, 0.95),
+    VisualMetricKind.IDEOGRAPHIC_HEIGHT: (0.65, 0.98),
+    VisualMetricKind.ACTUAL_LINE_INK: (0.55, 1.25),
+}
+
+
+def _original_metric(
+    kind: VisualMetricKind,
+    observed_metric: float | None,
+    source_size: float,
+    ratio: float,
+    trusted: bool = False,
+) -> float:
     estimated = source_size * ratio
-    if observed_metric is None or observed_metric <= 0:
+    if observed_metric is None or observed_metric <= 0 or source_size <= 0:
         return estimated
-    # PyMuPDF texttrace/rawdict char bboxes are often font boxes, not glyph ink.
-    # If the observed "x-height" is nearly the whole font size, trust the
-    # role/source-size estimate instead of treating the box as actual ink.
-    if observed_metric >= source_size * 0.78:
+    windows = _MEASURED_PLAUSIBLE_WINDOWS if trusted else _METRIC_PLAUSIBLE_WINDOWS
+    low, high = windows[kind]
+    if not source_size * low <= observed_metric <= source_size * high:
         return estimated
-    if observed_metric <= source_size * 0.20:
-        return estimated
-    return observed_metric or fallback
+    return observed_metric
 
 
 def _anchor_mode(line: TextLine, page_rect: fitz.Rect) -> AnchorMode:

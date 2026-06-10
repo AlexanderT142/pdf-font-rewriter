@@ -17,6 +17,12 @@ import {
 import { LiveRefontClient } from "./liveRefontClient";
 import type { LiveRefontDrawRun, LiveRefontPagePlan } from "./liveRefontProtocol";
 import type PdfFontRewriterPlugin from "./main";
+import {
+  applyTargetFontSelection,
+  importCustomFont,
+  targetFontOptions,
+  targetFontSelectValue,
+} from "./fontSelection";
 
 export const LIVE_REFONT_VIEW_TYPE = "pdf-font-rewriter-live-refont";
 
@@ -62,6 +68,7 @@ export class LiveRefontPdfView extends FileView {
   private toolbarEl: HTMLElement | null = null;
   private scrollerEl: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
+  private fontSelectEl: HTMLSelectElement | null = null;
   private pdfDocument: PDFDocumentProxy | null = null;
   private loadingTask: PDFDocumentLoadingTask | null = null;
   private liveClient: LiveRefontClient | null = null;
@@ -124,6 +131,7 @@ export class LiveRefontPdfView extends FileView {
     titleEl.setText(file.path);
 
     const actionsEl = this.toolbarEl.createDiv({ cls: "pdf-font-rewriter-live-actions" });
+    this.renderFontPicker(actionsEl);
     this.addToolbarButton(actionsEl, "Zoom out", "-", () => {
       void this.setScale(this.scale - ZOOM_STEP);
     });
@@ -138,6 +146,72 @@ export class LiveRefontPdfView extends FileView {
     this.statusEl.setText(`PDF.js ${pdfjsVersion}: loading`);
 
     this.scrollerEl = this.contentEl.createDiv({ cls: "pdf-font-rewriter-live-scroller" });
+  }
+
+  private renderFontPicker(parent: HTMLElement): void {
+    const groupEl = parent.createDiv({ cls: "pdf-font-rewriter-live-font" });
+    groupEl.createSpan({
+      cls: "pdf-font-rewriter-live-font-label",
+      text: "Font",
+    });
+
+    this.fontSelectEl = groupEl.createEl("select", {
+      cls: "pdf-font-rewriter-live-font-select",
+    });
+    this.fontSelectEl.setAttribute("aria-label", "Target font");
+    this.fontSelectEl.addEventListener("change", () => {
+      void this.handleToolbarFontChange(this.fontSelectEl?.value ?? "");
+    });
+    this.refreshFontPicker();
+
+    this.addToolbarButton(groupEl, "Import custom font", "Import", () => {
+      void this.handleToolbarFontImport();
+    });
+  }
+
+  private refreshFontPicker(): void {
+    if (!this.fontSelectEl) {
+      return;
+    }
+
+    this.fontSelectEl.empty();
+    for (const option of targetFontOptions(this.plugin.settings, { includeCustomPath: true })) {
+      const optionEl = this.fontSelectEl.createEl("option", {
+        attr: { value: option.value },
+        text: option.label,
+      });
+      if (option.value === targetFontSelectValue(this.plugin.settings)) {
+        optionEl.selected = true;
+      }
+    }
+  }
+
+  private async handleToolbarFontChange(value: string): Promise<void> {
+    try {
+      const changed = await applyTargetFontSelection(this.plugin, value);
+      this.refreshFontPicker();
+      if (changed) {
+        await this.rebuildLiveFont();
+      }
+    } catch (error) {
+      console.error(error);
+      new Notice("PDF Font Rewriter: could not change target font.");
+      this.refreshFontPicker();
+    }
+  }
+
+  private async handleToolbarFontImport(): Promise<void> {
+    try {
+      const changed = await importCustomFont(this.plugin);
+      this.refreshFontPicker();
+      if (changed) {
+        await this.rebuildLiveFont();
+      }
+    } catch (error) {
+      console.error(error);
+      new Notice("PDF Font Rewriter: could not import that font.");
+      this.refreshFontPicker();
+    }
   }
 
   private addToolbarButton(
@@ -508,6 +582,29 @@ export class LiveRefontPdfView extends FileView {
 
     const visiblePages = this.visiblePageIndexes();
     await Promise.all(visiblePages.map((pageIndex) => this.renderPage(pageIndex)));
+  }
+
+  private async rebuildLiveFont(): Promise<void> {
+    if (!this.file) {
+      return;
+    }
+
+    this.liveClient?.dispose();
+    this.liveClient = new LiveRefontClient(this.plugin, this.file);
+    this.pageCoverage.clear();
+    this.statusEl?.setText("Target font changed; rerendering visible pages");
+
+    for (const state of this.pages.values()) {
+      state.plan = null;
+      state.renderedScale = null;
+      state.renderedPlanScale = null;
+      this.clearOverlay(state);
+      state.statusEl.setText("Target font changed; waiting for viewport");
+    }
+
+    const visiblePages = this.visiblePageIndexes();
+    await Promise.all(visiblePages.map((pageIndex) => this.renderPage(pageIndex)));
+    this.updateToolbarCoverage();
   }
 
   private visiblePageIndexes(): number[] {

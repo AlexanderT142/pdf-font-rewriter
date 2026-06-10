@@ -97,7 +97,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--font", required=True, help="Target .ttf/.otf font file")
     parser.add_argument("--output", help="Output PDF path (default: INPUT_refonted.pdf)")
     parser.add_argument("--cjk-fallback", help="CJK fallback font file")
-    parser.add_argument("--mode", choices=["conservative", "normal"], default="conservative")
+    parser.add_argument(
+        "--mode",
+        choices=["conservative", "normal"],
+        default="conservative",
+        help=(
+            "conservative (default) skips paragraphs containing mixed-style lines "
+            "(e.g. italic/bold phrases) instead of flattening them to the regular "
+            "target face; normal converts them with style flattening for more coverage"
+        ),
+    )
     parser.add_argument("--report", help="Audit JSON path (default: alongside output PDF)")
     parser.add_argument("--pages", help='Page range to process, e.g. "1-10,15,20-30"')
     parser.add_argument("--preview", action="store_true", help="Reserved for future before/after preview")

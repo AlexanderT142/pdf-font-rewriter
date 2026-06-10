@@ -1,14 +1,19 @@
 import type PdfFontRewriterPlugin from "./main";
 import {
-  BUILTIN_FONTS,
   CUSTOM_FONT_ID,
   DEFAULT_BUILTIN_FONT_ID,
   installOrUpdateBuiltinFonts,
 } from "./builtinFonts";
+import {
+  applyTargetFontSelection,
+  importCustomFont,
+  targetFontOptions,
+  targetFontSelectValue,
+} from "./fontSelection";
 import { installOrUpdateHelper } from "./helperInstaller";
 import { DEFAULT_HELPER_RELEASE_BASE_URL } from "./helperRelease";
 import { defaultHelperPath } from "./platform";
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 
 export interface PdfFontRewriterSettings {
   helperPath: string;
@@ -82,28 +87,31 @@ export class PdfFontRewriterSettingTab extends PluginSettingTab {
       .setName("Target font")
       .setDesc("Choose a built-in font, or use a custom .ttf/.otf file below.")
       .addDropdown((dropdown) => {
-        for (const font of BUILTIN_FONTS) {
-          dropdown.addOption(font.id, font.label);
+        for (const option of targetFontOptions(this.plugin.settings, { includeCustomPath: true })) {
+          dropdown.addOption(option.value, option.label);
         }
 
         return dropdown
-          .addOption(CUSTOM_FONT_ID, "Custom font path")
-          .setValue(
-            this.plugin.settings.targetFontSource === "custom"
-              ? CUSTOM_FONT_ID
-              : this.plugin.settings.builtinFontId,
-          )
+          .setValue(targetFontSelectValue(this.plugin.settings))
           .onChange(async (value) => {
-            if (value === CUSTOM_FONT_ID) {
-              this.plugin.settings.targetFontSource = "custom";
-            } else {
-              this.plugin.settings.targetFontSource = "builtin";
-              this.plugin.settings.builtinFontId = value;
-            }
-            await this.plugin.saveSettings();
+            await applyTargetFontSelection(this.plugin, value);
             this.display();
           });
-      });
+      })
+      .addButton((button) =>
+        button.setButtonText("Import .ttf/.otf").onClick(async () => {
+          button.setDisabled(true);
+          try {
+            await importCustomFont(this.plugin);
+            this.display();
+          } catch (error) {
+            console.error(error);
+            new Notice("PDF Font Rewriter: could not import that font.");
+          } finally {
+            button.setDisabled(false);
+          }
+        }),
+      );
 
     if (this.plugin.settings.targetFontSource === "custom") {
       new Setting(containerEl)

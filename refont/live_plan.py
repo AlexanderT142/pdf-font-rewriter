@@ -17,19 +17,27 @@ from .safety import analyze_page_safety
 from .shaper import shape_line
 
 
-PLANNER_VERSION = "live-plan-v3"
+PLANNER_VERSION = "live-plan-v4"
 LIVE_FALLBACK_MIN_SCALE_X = 0.94
 LIVE_FALLBACK_MAX_SCALE_X = 1.08
 LIVE_CALIBRATED_MIN_SCALE_X = 0.96
 LIVE_CALIBRATED_MAX_SCALE_X = 1.04
 LIVE_CALIBRATION_MIN_LINES = 5
 LIVE_CALIBRATION_MIN_EVIDENCE = 3.0
-LIVE_CALIBRATION_MIN_FACTOR = 0.78
-LIVE_CALIBRATION_MAX_FACTOR = 1.34
+# Calibration changes the drawn font size, i.e. the perceived text size.
+# The product contract treats perceived size as near-inviolable, so the
+# region factor budget is narrow; regions needing more are left original.
+LIVE_CALIBRATION_MIN_FACTOR = 0.92
+LIVE_CALIBRATION_MAX_FACTOR = 1.08
 LIVE_CALIBRATION_ACTIVATE_LOW = 0.91
 LIVE_CALIBRATION_ACTIVATE_HIGH = 1.10
 LIVE_CALIBRATION_MAX_DISPERSION = 0.085
-LIVE_CALIBRATION_MAX_TAIL = 0.155
+LIVE_CALIBRATION_MAX_TAIL = 0.10
+# Per-line fallback budgets: drawn size may shrink at most to 0.92x, and the
+# drawn line end may fall short of the original end by at most ~6%.
+LIVE_FALLBACK_MIN_SIZE_MULTIPLIER = 0.92
+LIVE_FALLBACK_MIN_RAW_SCALE_X = LIVE_FALLBACK_MIN_SCALE_X * LIVE_FALLBACK_MIN_SIZE_MULTIPLIER
+LIVE_FALLBACK_MAX_RAW_SCALE_X = LIVE_FALLBACK_MAX_SCALE_X * 1.06
 
 
 @dataclass(frozen=True)
@@ -157,17 +165,30 @@ def _live_fallback_eligible(line: TextLine) -> bool:
         return False
     if fit.scale_x <= 0 or fit.font_size <= 0:
         return False
+    # Lines whose raw fit would need more distortion than the live budgets
+    # (size shrink below 0.92x or a line end >6% short) look broken when
+    # capped, so they stay original instead of being drawn ugly.
+    if not LIVE_FALLBACK_MIN_RAW_SCALE_X <= fit.scale_x <= LIVE_FALLBACK_MAX_RAW_SCALE_X:
+        return False
     return all(_live_overridable_reason(reason) for reason in line.unsafe_reasons)
 
 
 def _live_overridable_reason(reason: str) -> bool:
+    # "target ink overflows" is intentionally NOT overridable: capped scale
+    # only fixes horizontal error, so overriding a vertical-overflow rejection
+    # can draw text that collides with adjacent lines.
+    # Region rejections caused by hard line failures (e.g. mixed styles in
+    # the paragraph) are also NOT overridable: drawing the convertible
+    # neighbors would recreate the mixed-typeface paragraph the region pass
+    # exists to prevent.
+    if reason.startswith("region coherence rejected") and "non-overridable line failures" in reason:
+        return False
     return (
         reason.startswith("region coherence rejected")
         or reason.startswith("replacement text does not fit visual geometry")
         or reason.startswith("visual scale outside")
         or reason.startswith("low visual role confidence")
         or reason.startswith("unknown visual line role")
-        or reason.startswith("target ink overflows")
     )
 
 
@@ -252,7 +273,7 @@ def _font_size_multiplier(
         return calibration.factor
     if raw_scale_x >= LIVE_FALLBACK_MIN_SCALE_X:
         return 1.0
-    return max(0.72, raw_scale_x / max(draw_scale_x, 0.01))
+    return max(LIVE_FALLBACK_MIN_SIZE_MULTIPLIER, raw_scale_x / max(draw_scale_x, 0.01))
 
 
 def _build_live_calibrations(

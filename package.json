@@ -1,6 +1,6 @@
 {
   "name": "pdf-font-rewriter",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "private": true,
   "license": "Apache-2.0",
   "description": "PDF Font Rewriter source and Obsidian desktop plugin package.",
@@ -8,6 +8,7 @@
     "build": "npm run build:obsidian",
     "build:obsidian": "npm --prefix obsidian-plugin run build",
     "test:helper-installer": "npm --prefix obsidian-plugin run test:helper-installer",
+    "test:char-stats": ".venv/bin/python tests/test_char_stats.py",
     "typecheck:obsidian-root": "tsc -p tsconfig.json --noEmit --skipLibCheck"
   },
   "devDependencies": {

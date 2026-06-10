@@ -4,7 +4,9 @@ from collections import Counter
 
 import fitz
 
-from .font_utils import build_visual_profile_chain, is_private_use, missing_codepoints, segment_by_font_coverage
+from .font_utils import build_visual_profile_chain, is_cjk_codepoint, is_private_use, missing_codepoints, segment_by_font_coverage
+from .ink_sampler import PageInkSampler
+from .inserter import rgb_from_pymupdf
 from .models import FontInfo, PageIndex, RectTuple, TextLine, TextRun
 from .region_policy import apply_region_coherence_policy
 from .text_layer_validator import (
@@ -26,7 +28,8 @@ def analyze_page_safety(page: fitz.Page, page_index: PageIndex, font_chain: list
     widget_rects = _widget_rects(page)
     visual_profiles = build_visual_profile_chain(font_chain)
     validate_page_text_layer(page, page_index, mode)
-    page_visual_stats = analyze_page_visual_stats(page.rect, page_index.lines)
+    sampler = PageInkSampler(page)
+    page_visual_stats = analyze_page_visual_stats(page.rect, page_index.lines, sampler)
 
     for line in page_index.lines:
         reasons: list[str] = []
@@ -59,6 +62,12 @@ def analyze_page_safety(page: fitz.Page, page_index: PageIndex, font_chain: list
             preview = ", ".join(f"U+{codepoint:04X}" for codepoint in sorted(set(missing))[:8])
             reasons.append(f"missing glyph coverage ({preview})")
 
+        # Paint/style mixing is appended AFTER the fit is computed: these
+        # lines must still carry a fit_result so the region coherence pass
+        # sees them as hard failures and skips the whole paragraph, instead
+        # of converting the lines around them (a mixed-typeface paragraph).
+        paint_reasons = _mixed_paint_reasons(line, mode)
+
         segments = segment_by_font_coverage(line.text, font_chain) if not missing else []
         if segments and not reasons:
             fit = fit_visual_geometry(
@@ -68,10 +77,12 @@ def analyze_page_safety(page: fitz.Page, page_index: PageIndex, font_chain: list
                 page_rect=page.rect,
                 page_stats=page_visual_stats,
                 mode=mode,
+                sampler=sampler,
             )
             line.fit_result = fit
             if not fit.safe:
                 reasons.append(fit.unsafe_reason)
+        reasons.extend(paint_reasons)
 
         deduped = _dedupe_preserve_order(reasons)
         if deduped:
@@ -118,6 +129,50 @@ def _run_safety_reasons(run: TextRun, bboxlog: list[tuple[str, fitz.Rect]]) -> l
                 break
 
     return reasons
+
+
+def _mixed_paint_reasons(line: TextLine, mode: str) -> list[str]:
+    """Lines whose runs paint differently cannot be reproduced uniformly.
+
+    The inserter draws one color per line, so materially mixed colors (e.g.
+    a colored link inside black text) would be flattened — always unsafe.
+    Mixed fonts/styles within one script (italic or bold phrases inside a
+    roman line; the source styles are often distinguishable only by their
+    subset font name) would be flattened to the single target face — unsafe
+    in conservative mode. Font changes ACROSS scripts (a Latin font plus a
+    CJK font in one line) are ordinary typesetting, not style mixing.
+    """
+    runs = [run for run in line.runs if run.text.strip()]
+    if len(runs) <= 1:
+        return []
+
+    reasons: list[str] = []
+    colors = [rgb_from_pymupdf(run.color) for run in runs]
+    base = colors[0]
+    if any(max(abs(c[i] - base[i]) for i in range(3)) > 0.12 for c in colors[1:]):
+        reasons.append("line mixes text colors")
+
+    if mode == "conservative":
+        fonts_by_script: dict[str, set[str]] = {}
+        flags_by_script: dict[str, set[tuple[str, ...]]] = {}
+        for run in runs:
+            script = _run_script_class(run.text)
+            fonts_by_script.setdefault(script, set()).add(run.font_name)
+            flags_by_script.setdefault(script, set()).add(tuple(sorted(run.flags)))
+        if any(len(fonts) > 1 for fonts in fonts_by_script.values()) or any(
+            len(flags) > 1 for flags in flags_by_script.values()
+        ):
+            reasons.append("line mixes fonts or styles")
+
+    return reasons
+
+
+def _run_script_class(text: str) -> str:
+    visible = [char for char in text if not char.isspace()]
+    if not visible:
+        return "latin"
+    cjk = sum(1 for char in visible if is_cjk_codepoint(ord(char)))
+    return "cjk" if cjk >= len(visible) / 2 else "latin"
 
 
 def _unicode_reliability_reason(line: TextLine) -> str:

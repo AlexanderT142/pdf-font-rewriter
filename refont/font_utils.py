@@ -155,6 +155,13 @@ def build_font_visual_profile(path: Path, font_index: int = 0) -> FontVisualProf
         if digit_height is None:
             digit_height = cap_height
 
+        # Ink-bounds variants over the same char classes used by the page
+        # ink sampler, so source (raster) and target (outline) metrics share
+        # overshoot semantics.
+        x_ink_height = _median_glyph_height(font, glyph_set, cmap, "acemnorsuvwxz")
+        cap_ink_height = _median_glyph_height(font, glyph_set, cmap, "ABDEHIKLMNPRTU")
+        digit_ink_height = _median_glyph_height(font, glyph_set, cmap, "0123456789")
+
         cjk_bounds = _union_glyph_bounds(font, glyph_set, cmap, "一中国語漢字日月田")
         ideographic_top = int(cjk_bounds[3]) if cjk_bounds else None
         ideographic_bottom = int(cjk_bounds[1]) if cjk_bounds else None
@@ -176,6 +183,9 @@ def build_font_visual_profile(path: Path, font_index: int = 0) -> FontVisualProf
             x_height=int(x_height) if x_height else None,
             cap_height=int(cap_height) if cap_height else None,
             digit_height=int(digit_height) if digit_height else None,
+            x_ink_height=int(x_ink_height) if x_ink_height else None,
+            cap_ink_height=int(cap_ink_height) if cap_ink_height else None,
+            digit_ink_height=int(digit_ink_height) if digit_ink_height else None,
             ideographic_top=ideographic_top,
             ideographic_bottom=ideographic_bottom,
             global_bbox=(int(head.xMin), int(head.yMin), int(head.xMax), int(head.yMax)),

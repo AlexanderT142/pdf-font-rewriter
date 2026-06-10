@@ -19,8 +19,8 @@ It does not try to guess everything. If a page is image-only, rotated, too uncer
 1. Install **PDF Font Rewriter** from Obsidian Community plugins.
 2. Open a PDF in Obsidian.
 3. For normal reading, click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Open in Live Refont View**, or run **PDF Font Rewriter: Open active PDF in Live Refont View** from the command palette.
-4. Choose the target font in plugin settings. Built-in fonts install automatically; choose **Custom font path** if you want to use your own `.ttf` or `.otf` file.
-5. Live Refont View keeps the original PDF file unchanged while rendering safe text in the chosen font.
+4. In Live Refont View, use the **Font** dropdown in the top toolbar to switch between built-in target fonts. The visible pages rerender with the new font without changing the original PDF file.
+5. To use your own font, click **Import** beside the font dropdown and choose a local `.ttf` or `.otf` file. The plugin copies it into local app-data, selects it as the target font, and uses it for both live reading and export.
 6. To export a rewritten PDF instead, run **PDF Font Rewriter: Export active PDF with refonted text** from the command palette.
 7. For export, leave the scope on **Visible page + nearby pages** for normal reading, then click **Rewrite visible pages**. It rewrites the PDF sheet Obsidian is showing, plus the nearby sheets you choose, without using the printed page label inside the book.
 
@@ -29,6 +29,8 @@ When text is changed, the plugin either writes a rewritten PDF next to the origi
 Obsidian users do not need Python or Python dependencies. The plugin installs its packaged desktop helper automatically.
 
 Built-in fonts include Charis SIL, XCharter, TeX Gyre Pagella, EB Garamond, Inter, Noto Sans, Open Sans, Lato, Atkinson Hyperlegible, Andika, and OpenDyslexic. The small Obsidian plugin bundle contains only font metadata; on desktop activation the plugin downloads the font assets from this repository's GitHub Releases, verifies SHA-256 checksums, and stores them in local app-data.
+
+You can also choose fonts from **Settings -> PDF Font Rewriter -> Target font** or from the export dialog. Selecting **Custom font path** still works if you prefer to paste an absolute path manually; clicking **Import .ttf/.otf** is safer because the plugin keeps a local copy of the font.
 
 ## What It Works Best On
 
@@ -83,6 +85,16 @@ The plugin writes verified built-in fonts into:
 - Windows: `%APPDATA%\pdf-font-rewriter\fonts`
 - Linux: `~/.local/share/pdf-font-rewriter/fonts`
 
+### Imported Custom Font Location
+
+Fonts imported from the Live Refont toolbar, settings page, or export dialog are copied into:
+
+- macOS: `~/Library/Application Support/pdf-font-rewriter/custom-fonts`
+- Windows: `%APPDATA%\pdf-font-rewriter\custom-fonts`
+- Linux: `~/.local/share/pdf-font-rewriter/custom-fonts`
+
+The plugin stores the copied font path in its settings. Imported fonts stay local and are not uploaded.
+
 ### Python CLI
 
 The same engine can be run directly as a Python CLI for development and advanced local use.
@@ -110,6 +122,21 @@ python -m refont chinese.pdf \
 ```
 
 On macOS the CLI also tries common system CJK fonts if `--cjk-fallback` is omitted.
+
+#### Safety modes and mixed-style text
+
+`--mode conservative` (the default) refuses to flatten styled text: lines
+that mix fonts or styles within one script — italic or bold phrases inside a
+roman sentence, superscript footnote markers — are skipped, and to avoid a
+paragraph set in two different typefaces, the surrounding paragraph is
+skipped with them. On scholarly books that italicize terms in most
+paragraphs, this can leave a large share of the text unconverted; the audit
+report lists every skipped line with its reason.
+
+`--mode normal` keeps those paragraphs convertible and retains much more
+coverage, at the cost of style flattening: italic and bold phrases are
+redrawn in the single regular target face. Lines that mix text colors (for
+example, links inside black text) are skipped in both modes.
 
 ### Obsidian Packaging
 

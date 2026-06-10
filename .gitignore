@@ -14,3 +14,4 @@ obsidian-plugin/node_modules/
 obsidian-plugin/main.js
 
 artifacts/
+tests/visual/out/

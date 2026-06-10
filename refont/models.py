@@ -67,6 +67,12 @@ class FontVisualProfile:
     x_height: int | None
     cap_height: int | None
     digit_height: int | None
+    # Ink-bounds variants measured from actual glyph outlines (BoundsPen),
+    # including overshoot. These match the semantics of raster-sampled
+    # source metrics better than the flat OS/2 table values.
+    x_ink_height: int | None
+    cap_ink_height: int | None
+    digit_ink_height: int | None
     ideographic_top: int | None
     ideographic_bottom: int | None
     global_bbox: tuple[int, int, int, int]
@@ -116,6 +122,10 @@ class CharVisualStats:
     cjk_height_pt: float | None
     nonspace_count: int
     nonspace_height_pt: float
+    # True when heights were measured from painted ink (raster sampler)
+    # rather than PyMuPDF char font boxes; measured values earn wider
+    # plausibility windows.
+    measured_ink: bool = False
 
 
 @dataclass(frozen=True)
