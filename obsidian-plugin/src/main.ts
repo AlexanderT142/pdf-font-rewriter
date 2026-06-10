@@ -157,6 +157,10 @@ export default class PdfFontRewriterPlugin extends Plugin {
       this.settings.openPdfWithLiveView = DEFAULT_SETTINGS.openPdfWithLiveView;
       migrated = true;
     }
+    if (typeof savedSettings.liveRefontEnabled !== "boolean") {
+      this.settings.liveRefontEnabled = DEFAULT_SETTINGS.liveRefontEnabled;
+      migrated = true;
+    }
     if (!isPageScope(savedSettings.pageScope)) {
       this.settings.pageScope = this.settings.pageRange.trim()
         ? "custom"

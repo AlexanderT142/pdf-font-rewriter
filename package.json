@@ -1,6 +1,6 @@
 {
   "name": "pdf-font-rewriter",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "private": true,
   "license": "Apache-2.0",
   "description": "PDF Font Rewriter source and Obsidian desktop plugin package.",

@@ -18,6 +18,7 @@ import { LiveRefontClient } from "./liveRefontClient";
 import type { LiveRefontDrawRun, LiveRefontPagePlan } from "./liveRefontProtocol";
 import type PdfFontRewriterPlugin from "./main";
 import {
+  ORIGINAL_PDF_FONT_ID,
   applyTargetFontSelection,
   importCustomFont,
   targetFontOptions,
@@ -106,7 +107,7 @@ export class LiveRefontPdfView extends FileView {
     const generation = this.loadGeneration;
     this.renderShell(file);
     this.liveClient?.dispose();
-    this.liveClient = new LiveRefontClient(this.plugin, file);
+    this.liveClient = this.isLiveRefontEnabled() ? new LiveRefontClient(this.plugin, file) : null;
     await this.destroyPdfDocument();
     await this.loadPdf(file, generation);
   }
@@ -128,7 +129,8 @@ export class LiveRefontPdfView extends FileView {
 
     this.toolbarEl = this.contentEl.createDiv({ cls: "pdf-font-rewriter-live-toolbar" });
     const titleEl = this.toolbarEl.createDiv({ cls: "pdf-font-rewriter-live-title" });
-    titleEl.setText(file.path);
+    titleEl.setText(file.basename);
+    titleEl.setAttribute("title", file.path);
 
     const actionsEl = this.toolbarEl.createDiv({ cls: "pdf-font-rewriter-live-actions" });
     this.renderFontPicker(actionsEl);
@@ -175,12 +177,15 @@ export class LiveRefontPdfView extends FileView {
     }
 
     this.fontSelectEl.empty();
-    for (const option of targetFontOptions(this.plugin.settings, { includeCustomPath: true })) {
+    for (const option of targetFontOptions(this.plugin.settings, {
+      includeCustomPath: true,
+      includeOriginal: true,
+    })) {
       const optionEl = this.fontSelectEl.createEl("option", {
         attr: { value: option.value },
         text: option.label,
       });
-      if (option.value === targetFontSelectValue(this.plugin.settings)) {
+      if (option.value === this.liveFontSelectValue()) {
         optionEl.selected = true;
       }
     }
@@ -188,10 +193,25 @@ export class LiveRefontPdfView extends FileView {
 
   private async handleToolbarFontChange(value: string): Promise<void> {
     try {
+      if (value === ORIGINAL_PDF_FONT_ID) {
+        if (this.isLiveRefontEnabled()) {
+          this.plugin.settings.liveRefontEnabled = false;
+          await this.plugin.saveSettings();
+          this.refreshFontPicker();
+          await this.rebuildLiveRendering("Original PDF selected; rerendering visible pages");
+        }
+        return;
+      }
+
+      const enableChanged = !this.isLiveRefontEnabled();
+      if (enableChanged) {
+        this.plugin.settings.liveRefontEnabled = true;
+        await this.plugin.saveSettings();
+      }
       const changed = await applyTargetFontSelection(this.plugin, value);
       this.refreshFontPicker();
-      if (changed) {
-        await this.rebuildLiveFont();
+      if (enableChanged || changed) {
+        await this.rebuildLiveRendering("Target font changed; rerendering visible pages");
       }
     } catch (error) {
       console.error(error);
@@ -203,10 +223,18 @@ export class LiveRefontPdfView extends FileView {
   private async handleToolbarFontImport(): Promise<void> {
     try {
       const changed = await importCustomFont(this.plugin);
-      this.refreshFontPicker();
-      if (changed) {
-        await this.rebuildLiveFont();
+      if (!changed) {
+        this.refreshFontPicker();
+        return;
       }
+
+      const enableChanged = !this.isLiveRefontEnabled();
+      if (enableChanged) {
+        this.plugin.settings.liveRefontEnabled = true;
+        await this.plugin.saveSettings();
+      }
+      this.refreshFontPicker();
+      await this.rebuildLiveRendering("Target font changed; rerendering visible pages");
     } catch (error) {
       console.error(error);
       new Notice("PDF Font Rewriter: could not import that font.");
@@ -395,6 +423,14 @@ export class LiveRefontPdfView extends FileView {
     await this.renderTextLayer(state, page, viewport, generation);
     await this.renderAnnotationLayer(state, page, viewport, generation);
     state.renderedScale = this.scale;
+    if (!this.isLiveRefontEnabled()) {
+      this.clearOverlay(state);
+      state.plan = null;
+      state.renderedPlanScale = this.scale;
+      state.statusEl.setText("Original PDF rendering");
+      this.recordOriginalOnlyPage(state.pageIndex, "live refont off");
+      return;
+    }
     state.statusEl.setText("Original rendered; requesting live refont plan");
     await this.applyLiveRefontPlan(state, page, viewport, generation);
   }
@@ -584,15 +620,15 @@ export class LiveRefontPdfView extends FileView {
     await Promise.all(visiblePages.map((pageIndex) => this.renderPage(pageIndex)));
   }
 
-  private async rebuildLiveFont(): Promise<void> {
+  private async rebuildLiveRendering(statusText: string): Promise<void> {
     if (!this.file) {
       return;
     }
 
     this.liveClient?.dispose();
-    this.liveClient = new LiveRefontClient(this.plugin, this.file);
+    this.liveClient = this.isLiveRefontEnabled() ? new LiveRefontClient(this.plugin, this.file) : null;
     this.pageCoverage.clear();
-    this.statusEl?.setText("Target font changed; rerendering visible pages");
+    this.statusEl?.setText(statusText);
 
     for (const state of this.pages.values()) {
       state.plan = null;
@@ -605,6 +641,16 @@ export class LiveRefontPdfView extends FileView {
     const visiblePages = this.visiblePageIndexes();
     await Promise.all(visiblePages.map((pageIndex) => this.renderPage(pageIndex)));
     this.updateToolbarCoverage();
+  }
+
+  private isLiveRefontEnabled(): boolean {
+    return this.plugin.settings.liveRefontEnabled !== false;
+  }
+
+  private liveFontSelectValue(): string {
+    return this.isLiveRefontEnabled()
+      ? targetFontSelectValue(this.plugin.settings)
+      : ORIGINAL_PDF_FONT_ID;
   }
 
   private visiblePageIndexes(): number[] {
@@ -967,6 +1013,13 @@ export class LiveRefontPdfView extends FileView {
     }
 
     const entries = [...this.pageCoverage.entries()];
+    if (!this.isLiveRefontEnabled()) {
+      this.statusEl.setText(
+        `Original PDF: ${this.pageCount} pages | visible checked ${entries.length}`,
+      );
+      return;
+    }
+
     const originalOnly = entries
       .filter(([, coverage]) => coverage.status === "original")
       .map(([pageIndex]) => pageIndex + 1)

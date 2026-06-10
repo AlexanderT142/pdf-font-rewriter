@@ -19,7 +19,7 @@ It does not try to guess everything. If a page is image-only, rotated, too uncer
 1. Install **PDF Font Rewriter** from Obsidian Community plugins.
 2. Open a PDF in Obsidian.
 3. For normal reading, click the **PDF Font Rewriter** ribbon icon, right-click the PDF and choose **Open in Live Refont View**, or run **PDF Font Rewriter: Open active PDF in Live Refont View** from the command palette.
-4. In Live Refont View, use the **Font** dropdown in the top toolbar to switch between built-in target fonts. The visible pages rerender with the new font without changing the original PDF file.
+4. In Live Refont View, use the compact **Font** dropdown in the top toolbar to switch between **Original PDF** and built-in target fonts. **Original PDF** restores native PDF rendering; choosing any other font rerenders the visible pages without changing the original PDF file.
 5. To use your own font, click **Import** beside the font dropdown and choose a local `.ttf` or `.otf` file. The plugin copies it into local app-data, selects it as the target font, and uses it for both live reading and export.
 6. To export a rewritten PDF instead, run **PDF Font Rewriter: Export active PDF with refonted text** from the command palette.
 7. For export, leave the scope on **Visible page + nearby pages** for normal reading, then click **Rewrite visible pages**. It rewrites the PDF sheet Obsidian is showing, plus the nearby sheets you choose, without using the printed page label inside the book.

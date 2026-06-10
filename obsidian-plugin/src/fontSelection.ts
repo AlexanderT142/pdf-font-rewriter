@@ -13,6 +13,7 @@ import { defaultCustomFontsDir } from "./platform";
 import type { PdfFontRewriterSettings } from "./settings";
 
 export const IMPORT_CUSTOM_FONT_ID = "__import-custom-font__";
+export const ORIGINAL_PDF_FONT_ID = "__original-pdf__";
 
 interface FontOption {
   value: string;
@@ -21,6 +22,7 @@ interface FontOption {
 
 interface FontOptionOptions {
   includeCustomPath?: boolean;
+  includeOriginal?: boolean;
   includeImport?: boolean;
 }
 
@@ -36,6 +38,13 @@ export function targetFontOptions(
     value: font.id,
     label: font.label,
   }));
+
+  if (options.includeOriginal) {
+    fontOptions.unshift({
+      value: ORIGINAL_PDF_FONT_ID,
+      label: "Original PDF",
+    });
+  }
 
   if (options.includeCustomPath) {
     fontOptions.push({

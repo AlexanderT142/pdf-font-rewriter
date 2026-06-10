@@ -30,6 +30,7 @@ export interface PdfFontRewriterSettings {
   outputMode: "copy" | "replace";
   outputSuffix: string;
   openPdfWithLiveView: boolean;
+  liveRefontEnabled: boolean;
   pageScope: "visible-window" | "custom" | "all";
   visiblePageRadius: number;
   pageRange: string;
@@ -61,6 +62,7 @@ export const DEFAULT_SETTINGS: PdfFontRewriterSettings = {
   outputMode: "copy",
   outputSuffix: "_refonted",
   openPdfWithLiveView: false,
+  liveRefontEnabled: true,
   pageScope: "visible-window",
   visiblePageRadius: 1,
   pageRange: "",
